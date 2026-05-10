@@ -56,16 +56,21 @@ grep -q "def save_conf_server(url, token=''" \
     || fail "patch 1 not applied (helpers.py)"
 ok "Patch 1 (helpers.py) applied"
 
-# Patch 2 — homepage.py: connect_to_odoo_server should accept url=None
-grep -q 'connect_to_odoo_server(self, token=None, url=None)' \
-    "${ROOT}/home/pi/odoo/addons/iot_drivers/controllers/homepage.py" \
-    || fail "patch 2 not applied (homepage.py)"
+# Patch 2 — homepage.py: connect_to_odoo_server should accept url + code,
+# and the body should reference /filamind_iot/pair for the new pairing flow.
+homepage="${ROOT}/home/pi/odoo/addons/iot_drivers/controllers/homepage.py"
+grep -q 'connect_to_odoo_server(self, token=None, url=None, code=None)' "${homepage}" \
+    || fail "patch 2 not applied (homepage.py: signature)"
+grep -q '/filamind_iot/pair' "${homepage}" \
+    || fail "patch 2 not applied (homepage.py: pairing endpoint missing)"
 ok "Patch 2 (homepage.py) applied"
 
-# Patch 3 — ServerDialog.js: should reference state.mode === 'url'
-grep -q "state.mode === 'url'" \
-    "${ROOT}/home/pi/odoo/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js" \
-    || fail "patch 3 not applied (ServerDialog.js)"
+# Patch 3 — ServerDialog.js: tabbed UI with URL+code form fields.
+dialog="${ROOT}/home/pi/odoo/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js"
+grep -q "state.mode === 'url'" "${dialog}" \
+    || fail "patch 3 not applied (ServerDialog.js: tabs)"
+grep -q 'form.code' "${dialog}" \
+    || fail "patch 3 not applied (ServerDialog.js: pairing-code field)"
 ok "Patch 3 (ServerDialog.js) applied"
 
 # Patch 4 — rc.local: autoupdate block should be commented

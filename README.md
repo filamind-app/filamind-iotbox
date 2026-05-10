@@ -13,11 +13,22 @@ Patched **Odoo IoT Box** image that lets you connect to a self-hosted Odoo serve
 | # | File | Change |
 |---|------|--------|
 | 1 | `addons/iot_drivers/tools/helpers.py` | `save_conf_server` accepts a bare URL |
-| 2 | `addons/iot_drivers/controllers/homepage.py` | `/iot_drivers/connect_to_server` accepts a `url` param |
-| 3 | `addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js` | Settings dialog gains a **Server URL** tab |
+| 2 | `addons/iot_drivers/controllers/homepage.py` | `/iot_drivers/connect_to_server` accepts `url` + optional `code` (pairs with [filamind-iot](https://github.com/filamind-app/filamind-iot)) |
+| 3 | `addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js` | Settings dialog gains a **Server URL** tab with URL + pairing-code fields |
 | 4 | `/etc/rc.local` | Disables the upstream auto-update that would wipe the patches |
 
 The original token-based pairing flow is preserved for compatibility.
+
+### Pairing flow with [filamind-iot](https://github.com/filamind-app/filamind-iot)
+
+1. Install the **Filamind IoT** addon on your Odoo server.
+2. Go to **IoT → Connect IoT Box** in Odoo, generate a pairing code (8-char hex, valid 15 min by default).
+3. On the IoT Box settings page (this image), open **Configure** → **Server URL** tab.
+4. Paste the Odoo URL and the pairing code. Submit.
+5. The box POSTs to `{url}/filamind_iot/pair` with its identifier and gets a permanent token back.
+6. Box restarts and starts heartbeating to your Odoo.
+
+Leave the code field empty if you prefer to pair from the Odoo side using box-token mode.
 
 ---
 

@@ -27,14 +27,14 @@ export class ServerDialog extends Component {
             error: null,
             mode: "url",
         });
-        this.form = useState({ token: "", url: "" });
+        this.form = useState({ token: "", url: "", code: "" });
     }
 
     async connectToServer() {
         this.state.loading = true;
         this.state.error = null;
         const params = this.state.mode === "url"
-            ? { url: this.form.url }
+            ? { url: this.form.url, code: this.form.code }
             : { token: this.form.token };
         try {
             const data = await this.store.rpc({
@@ -100,13 +100,27 @@ export class ServerDialog extends Component {
 
                     <div t-if="state.mode === 'url'">
                         <div class="alert alert-info fs-6" role="alert">
-                            Enter the URL of your self-hosted Odoo server. The IoT box will connect
-                            directly without going through <code>iot-proxy.odoo.com</code>.
+                            Enter the URL of your self-hosted Odoo server (running the
+                            <b>filamind-iot</b> addon) and the pairing code shown by
+                            <i>IoT → Connect IoT Box</i> there. No <code>iot-proxy.odoo.com</code>
+                            round-trip.
                         </div>
-                        <div class="input-group-sm mb-3">
+                        <div class="input-group-sm mb-2">
+                            <span class="input-group-text" style="min-width:5rem;">URL</span>
                             <input type="url" class="form-control"
                                    t-model="form.url"
                                    placeholder="https://odoo.example.com"/>
+                        </div>
+                        <div class="input-group-sm mb-3">
+                            <span class="input-group-text" style="min-width:5rem;">Code</span>
+                            <input type="text" class="form-control text-uppercase"
+                                   t-model="form.code"
+                                   maxlength="16"
+                                   placeholder="8-char pairing code (optional)"/>
+                        </div>
+                        <div class="form-text small">
+                            Leave the code empty to save the URL only — useful if you plan
+                            to pair from the Odoo side using <i>box-token</i> mode.
                         </div>
                     </div>
 

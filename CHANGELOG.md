@@ -7,8 +7,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and
 ## [Unreleased]
 
 ### Added
+- **Pairing-code support** in the Server URL tab — paired with the
+  [filamind-iot](https://github.com/filamind-app/filamind-iot) Odoo addon.
+  Box POSTs `{code, identifier, ip, mac, hostname, version}` to
+  `{url}/filamind_iot/pair` and stores the returned token automatically.
 - Tabbed `ServerDialog` settings UI with **Server URL** and **Pairing Token** modes
-- `/iot_drivers/connect_to_server` JSON-RPC endpoint accepts a `url` parameter
+- `/iot_drivers/connect_to_server` JSON-RPC endpoint accepts `url` and `code` parameters
 - `scripts/build-image.sh` — patches an upstream IoT Box `.img`
 - `scripts/split-image.sh` — zstd compression + 1.9 GB chunking + SHA-256 manifest
 - `scripts/download-image.sh` — auto-fetches a release, verifies, and reassembles
