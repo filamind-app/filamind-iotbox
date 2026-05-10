@@ -52,12 +52,18 @@ jobs:
           if [[ -n "${{ inputs.upstream_image_url }}" ]]; then
             URL="${{ inputs.upstream_image_url }}"
           else
-            URL="https://nightly.odoo.com/master/iotbox/"
-            LATEST=$(curl -fsSL "$URL" | grep -oE 'iotbox-[0-9.]+\.img\.zip' \
+            BASE="https://nightly.odoo.com/master/iotbox/"
+            # Odoo nightly hrefs look like iotbox_2026.05.09.img.zip
+            LATEST=$(curl -fsSL "$BASE" \
+                       | grep -oE 'iotbox_[0-9.]+\.img\.zip' \
                        | sort -u | tail -1)
-            URL="${URL}${LATEST}"
+            if [[ -z "$LATEST" ]]; then
+                echo "::error::could not parse latest iotbox_*.img.zip from $BASE"
+                exit 1
+            fi
+            URL="${BASE}${LATEST}"
           fi
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Upstream image: $URL"
 
       - name: Download and extract upstream image
@@ -65,7 +71,15 @@ jobs:
           mkdir -p build
           curl -fsSL "${{ steps.upstream.outputs.url }}" -o build/upstream.zip
           unzip -d build build/upstream.zip
-          mv build/iotbox-*.img build/upstream.img
+          # Tolerate both naming styles in case Odoo flips the separator again
+          shopt -s nullglob
+          set -- build/iotbox_*.img build/iotbox-*.img
+          if [[ $# -eq 0 ]]; then
+              echo "::error::no iotbox*.img produced by unzip"
+              ls -la build/
+              exit 1
+          fi
+          mv "$1" build/upstream.img
           rm build/upstream.zip
           ls -lh build/
 

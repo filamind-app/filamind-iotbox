@@ -31,7 +31,7 @@ mkdir -p "${BUILD_DIR}" "${WORK_DIR}"
 if [[ -z "${INPUT_IMG}" ]]; then
     UPSTREAM_URL="https://nightly.odoo.com/master/iotbox/"
     log "No image given — checking ${UPSTREAM_URL}"
-    LATEST=$(curl -fsSL "${UPSTREAM_URL}" | grep -oE 'iotbox-[0-9.]+\.img\.zip' | sort -u | tail -1)
+    LATEST=$(curl -fsSL "${UPSTREAM_URL}" | grep -oE 'iotbox_[0-9.]+\.img\.zip' | sort -u | tail -1)
     [[ -n "${LATEST}" ]] || fail "Could not locate latest upstream image"
     INPUT_IMG="${BUILD_DIR}/${LATEST%.zip}"
     if [[ ! -f "${INPUT_IMG}" ]]; then
