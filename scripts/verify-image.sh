@@ -11,7 +11,6 @@ IMG="${1:?usage: sudo $0 <image.img>}"
 [[ -f "${IMG}" ]] || { echo "not found: ${IMG}" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || { echo "run as root"; exit 1; }
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$(mktemp -d)"
 
 log()  { printf '\033[1;34m▶\033[0m %s\n' "$*"; }
@@ -20,14 +19,21 @@ fail() { printf '\033[1;31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 
 cleanup() {
     umount "${WORK}/root" 2>/dev/null || true
-    [[ -n "${LOOP:-}" ]] && losetup -d "${LOOP}" 2>/dev/null || true
+    if [[ -n "${LOOP:-}" ]]; then
+        losetup -d "${LOOP}" 2>/dev/null || true
+    fi
     rm -rf "${WORK}"
 }
 trap cleanup EXIT
 
 log "Verifying partition table"
-fdisk -l "${IMG}" | grep -q 'W95 FAT32' || fail "missing FAT32 boot partition"
-fdisk -l "${IMG}" | grep -q 'Linux'     || fail "missing Linux root partition"
+parts=$(fdisk -l "${IMG}")
+if ! grep -q 'W95 FAT32' <<<"${parts}"; then
+    fail "missing FAT32 boot partition"
+fi
+if ! grep -q 'Linux' <<<"${parts}"; then
+    fail "missing Linux root partition"
+fi
 ok "Partitions OK"
 
 log "Mounting root partition read-only"
@@ -71,7 +77,7 @@ ok "Patch 4 (rc.local) applied"
 # Version stamp
 if [[ -f "${ROOT}/etc/filamind/version" ]]; then
     log "Version stamp:"
-    cat "${ROOT}/etc/filamind/version" | sed 's/^/  /'
+    sed 's/^/  /' "${ROOT}/etc/filamind/version"
 fi
 
 ok "All checks passed."

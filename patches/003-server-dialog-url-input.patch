@@ -1,31 +1,46 @@
 From: filamind <abdelmonemawad@hotmail.com>
 Subject: [PATCH 3/4] iot_drivers: add direct URL entry tab to ServerDialog
 
-Replaces the single "Server token" field with a tabbed dialog offering
+Replaces the single ''Server token'' field with a tabbed dialog offering
 two equivalent paths:
-  * "Server URL"     — paste a bare https URL (filamind extension)
-  * "Pairing Token"  — paste the full token from the IoT app (upstream)
+  * ''Server URL''     -- paste a bare https URL (filamind extension)
+  * ''Pairing Token''  -- paste the full token from the IoT app (upstream)
 
-The submit button calls `/iot_drivers/connect_to_server` with either
-`{url: ...}` or `{token: ...}` depending on the active tab.
+The submit button calls /iot_drivers/connect_to_server with either
+{url: ...} or {token: ...} depending on the active tab.
 
 ---
- .../static/src/app/components/dialog/ServerDialog.js | 92 ++++++++++++++++----
- 1 file changed, 76 insertions(+), 16 deletions(-)
-
-diff --git a/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js b/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js
 --- a/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js
 +++ b/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js
-@@ -12,17 +12,21 @@ export class ServerDialog extends Component {
-
+@@ -1,4 +1,13 @@
+ /* global owl */
++/*
++ * Modified by filamind-app: adds a "Server URL" tab so the IoT Box can be
++ * connected directly to a self-hosted Odoo server, bypassing the
++ * iot-proxy.odoo.com pairing exchange.
++ *
++ * Source of truth: this file is replaced wholesale by scripts/build-image.sh.
++ * The matching unified diff lives at patches/003-server-dialog-url-input.patch
++ * for reference and CI sanity-checking.
++ */
+ 
+ import useStore from "../../hooks/useStore.js";
+ import { BootstrapDialog } from "./BootstrapDialog.js";
+@@ -12,18 +21,26 @@
+ 
      setup() {
          this.store = useStore();
 -        this.state = useState({ waitRestart: false, loading: false, error: null });
 -        this.form = useState({ token: "" });
-+        this.state = useState({ waitRestart: false, loading: false, error: null, mode: "url" });
++        this.state = useState({
++            waitRestart: false,
++            loading: false,
++            error: null,
++            mode: "url",
++        });
 +        this.form = useState({ token: "", url: "" });
      }
-
+ 
      async connectToServer() {
          this.state.loading = true;
          this.state.error = null;
@@ -39,10 +54,9 @@ diff --git a/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js
 -                params: this.form,
 +                params,
              });
-
+ 
              if (data.status === "success") {
-@@ -57,18 +61,74 @@ export class ServerDialog extends Component {
-             <t t-set-slot="header">
+@@ -61,26 +78,73 @@
                  Configure Odoo Database
              </t>
              <t t-set-slot="body">
@@ -85,7 +99,8 @@ diff --git a/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js
 +                                   t-model="form.url"
 +                                   placeholder="https://odoo.example.com"/>
 +                        </div>
-+                    </div>
+                     </div>
+-                    <div class="small" t-else="">
 +
 +                    <div t-if="state.mode === 'token'">
 +                        <div class="alert alert-warning fs-6 pb-0" role="alert">
@@ -99,13 +114,13 @@ diff --git a/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js
 +                                   t-model="form.token"
 +                                   placeholder="Server token"/>
 +                        </div>
-                     </div>
--                    <div class="small" t-else="">
++                    </div>
 +                </t>
 +                <t t-else="">
 +                    <div class="small">
                          <p class="m-0">
-                             Your current database is: <br/>
+-                            Your current database is: <br/> 
++                            Your current database is: <br/>
                              <strong t-esc="store.base.server_status" />
                          </p>
                      </div>

@@ -67,10 +67,12 @@ ROOT="${WORK_DIR}/root"
 ODOO_DIR="${ROOT}/home/pi/odoo"
 
 log "Sanity check: confirming this is an Odoo IoT Box image"
-[[ -f "${ROOT}/etc/hostname" ]] && grep -q iotbox "${ROOT}/etc/hostname" \
-    || fail "Not an Odoo IoT Box image (hostname mismatch)"
-[[ -d "${ODOO_DIR}/addons/iot_drivers" ]] \
-    || fail "iot_drivers addon not found in image"
+if [[ ! -f "${ROOT}/etc/hostname" ]] || ! grep -q iotbox "${ROOT}/etc/hostname"; then
+    fail "Not an Odoo IoT Box image (hostname mismatch)"
+fi
+if [[ ! -d "${ODOO_DIR}/addons/iot_drivers" ]]; then
+    fail "iot_drivers addon not found in image"
+fi
 
 log "Applying patch 001 (helpers.py)"
 patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/001-helpers-optional-args.patch"
@@ -88,10 +90,11 @@ install -m 0755 "${REPO_ROOT}/src/etc/rc.local" "${ROOT}/etc/rc.local"
 
 log "Recording filamind version stamp"
 mkdir -p "${ROOT}/etc/filamind"
+patch_count=$(find "${REPO_ROOT}/patches/" -maxdepth 1 -name '*.patch' -type f | wc -l)
 cat > "${ROOT}/etc/filamind/version" <<EOF
 filamind-iotbox ${VERSION}
 built $(date -Iseconds)
-patches $(ls "${REPO_ROOT}/patches/" | wc -l)
+patches ${patch_count}
 EOF
 
 log "Syncing filesystem"

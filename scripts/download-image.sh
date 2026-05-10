@@ -57,7 +57,7 @@ grep '\.part$' MANIFEST.sha256 | sha256sum -c -
 
 PARTS=( *.part )
 [[ ${#PARTS[@]} -gt 0 ]] || fail "no .part files downloaded"
-BASE="$(echo "${PARTS[0]}" | sed 's/\.[0-9]*\.part$//')"
+BASE="${PARTS[0]%.*.part}"
 
 log "Concatenating ${#PARTS[@]} part(s) → ${BASE}"
 cat "${PARTS[@]}" > "${BASE}"
