@@ -84,11 +84,14 @@ jobs:
           ls -lh build/
 
       - name: Build patched image
-        run: sudo VERSION="${{ steps.ver.outputs.version }}" \
-             ./scripts/build-image.sh "$(pwd)/build/upstream.img"
+        run: |
+          sudo VERSION="${{ steps.ver.outputs.version }}" \
+              ./scripts/build-image.sh "$(pwd)/build/upstream.img"
 
       - name: Verify built image
-        run: sudo ./scripts/verify-image.sh build/iotbox-filamind-${{ steps.ver.outputs.version }}.img
+        run: |
+          sudo ./scripts/verify-image.sh \
+              "build/iotbox-filamind-${{ steps.ver.outputs.version }}.img"
 
       - name: Compress, split, hash
         run: ./scripts/split-image.sh build/iotbox-filamind-${{ steps.ver.outputs.version }}.img
