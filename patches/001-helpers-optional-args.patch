@@ -1,0 +1,27 @@
+From: filamind <abdelmonemawad@hotmail.com>
+Subject: [PATCH 1/4] iot_drivers: make save_conf_server arguments optional
+
+Allow save_conf_server() to be called with only a URL, omitting the token,
+db_uuid and enterprise_code. This is required so the new "set server URL"
+endpoint can store a bare URL without forcing the caller to supply the
+auxiliary fields (which the user does not have at that point).
+
+The existing pairing flow still passes all four values, so behavior is
+unchanged for the standard flow.
+
+---
+ addons/iot_drivers/tools/helpers.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/addons/iot_drivers/tools/helpers.py b/addons/iot_drivers/tools/helpers.py
+--- a/addons/iot_drivers/tools/helpers.py
++++ b/addons/iot_drivers/tools/helpers.py
+@@ -99,7 +99,7 @@ def require_db(function):
+     return wrapper
+
+
+-def save_conf_server(url, token, db_uuid, enterprise_code, db_name=None):
++def save_conf_server(url, token='', db_uuid='', enterprise_code='', db_name=None):
+     """
+     Save server configurations in odoo.conf
+     :param url: The URL of the server

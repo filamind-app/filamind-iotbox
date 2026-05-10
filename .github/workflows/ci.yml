@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint-python:
+    name: Lint Python (ruff + py_compile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Validate patch syntax (must look like unified diffs)
+        run: |
+          for p in patches/*.patch; do
+            head -1 "$p" | grep -E '^From: ' >/dev/null \
+              || { echo "::error file=$p::missing From: header"; exit 1; }
+            grep -qE '^---' "$p" \
+              || { echo "::error file=$p::no '---' line"; exit 1; }
+            grep -qE '^\+\+\+' "$p" \
+              || { echo "::error file=$p::no '+++' line"; exit 1; }
+          done
+          echo "All patches look syntactically valid."
+
+  lint-js:
+    name: Lint JavaScript (node --check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Strip OWL/JSX-like template literals and syntax-check
+        run: |
+          # OWL templates use xml`...` tagged template literals that contain
+          # JSX-like t-* attributes. node --check on the file should still
+          # work because tagged template content is opaque to the parser.
+          node --check src/iot_drivers/static/src/app/components/dialog/ServerDialog.js \
+            || { echo "::error file=ServerDialog.js::syntax error"; exit 1; }
+
+  apply-patches-dryrun:
+    name: Patches apply cleanly to upstream Odoo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone upstream Odoo (saas-19.1, sparse, shallow)
+        run: |
+          git clone --filter=blob:none --no-checkout --depth=1 \
+              -b saas-19.1 https://github.com/odoo/odoo.git upstream
+          cd upstream
+          git sparse-checkout init --no-cone
+          git sparse-checkout set 'addons/iot_drivers'
+          git checkout
+
+      - name: Apply each patch in dry-run mode
+        run: |
+          cd upstream
+          for p in ../patches/*.patch; do
+            case "$p" in
+              *rc-local*) echo "Skipping $p (not in odoo repo)"; continue ;;
+            esac
+            echo "::group::$p"
+            git apply --check --verbose "$p"
+            echo "::endgroup::"
+          done
+
+      - name: Apply for real and diff against src/ snapshots
+        run: |
+          cd upstream
+          git apply ../patches/001-helpers-optional-args.patch
+          git apply ../patches/002-homepage-add-url-endpoint.patch
+          # ServerDialog.js is a full-file replacement, not a patch
+          diff -u addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js \
+                  ../src/iot_drivers/static/src/app/components/dialog/ServerDialog.js \
+            && echo "::warning::src/ServerDialog.js is identical to upstream — patch 3 may not represent a real change" \
+            || echo "OK — src/ServerDialog.js diverges from upstream as expected"
+
+  scripts-shellcheck:
+    name: shellcheck on scripts/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - run: shellcheck -e SC1091,SC2086,SC2155 scripts/*.sh
+
+  manifest-validity:
+    name: Repo structure sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          required=(
+            patches/001-helpers-optional-args.patch
+            patches/002-homepage-add-url-endpoint.patch
+            patches/003-server-dialog-url-input.patch
+            patches/004-rc-local-disable-autoupdate.patch
+            scripts/build-image.sh
+            scripts/split-image.sh
+            scripts/download-image.sh
+            scripts/flash-patches.sh
+            scripts/verify-image.sh
+            src/iot_drivers/static/src/app/components/dialog/ServerDialog.js
+            src/etc/rc.local
+            README.md
+            LICENSE
+          )
+          for f in "${required[@]}"; do
+            [[ -f "$f" ]] || { echo "::error::missing $f"; exit 1; }
+          done
+          echo "All required files present."

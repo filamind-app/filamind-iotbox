@@ -1,0 +1,37 @@
+From: filamind <abdelmonemawad@hotmail.com>
+Subject: [PATCH 2/4] iot_drivers: extend connect_to_server to accept a bare URL
+
+Adds an optional `url` keyword argument to the existing
+`/iot_drivers/connect_to_server` endpoint. When provided (and `token` is
+absent), the URL is parsed and stored directly via save_conf_server,
+skipping the iot-proxy.odoo.com pairing exchange entirely.
+
+The original token-based flow is preserved unchanged for backwards
+compatibility with the upstream Odoo IoT app.
+
+---
+ addons/iot_drivers/controllers/homepage.py | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/addons/iot_drivers/controllers/homepage.py b/addons/iot_drivers/controllers/homepage.py
+--- a/addons/iot_drivers/controllers/homepage.py
++++ b/addons/iot_drivers/controllers/homepage.py
+@@ -288,7 +288,17 @@ class IotBoxOwlHomePage(http.Controller):
+         return {'status': 'success' if system.toggle_remote_debug() else 'failure'}
+
+     @route.iot_route('/iot_drivers/connect_to_server', type="jsonrpc", methods=['POST'], cors='*')
+-    def connect_to_odoo_server(self, token):
++    def connect_to_odoo_server(self, token=None, url=None):
++        # filamind: direct URL entry — bypasses the iot-proxy.odoo.com pairing.
++        # Token / db_uuid / enterprise_code can be filled in later via the
++        # standard pairing token flow if required by the target server.
++        if url and not token:
++            try:
++                helpers.save_conf_server(**helpers.parse_url(url))
++            except ValueError:
++                return {'status': 'failure', 'message': 'Invalid URL provided.'}
++            helpers.odoo_restart(1)
++            return {'status': 'success', 'message': 'Server URL saved. IoT will restart.'}
+         if token:
+             try:
+                 if len(token.split('|')) == 4:

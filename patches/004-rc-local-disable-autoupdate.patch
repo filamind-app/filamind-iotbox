@@ -1,0 +1,54 @@
+From: filamind <abdelmonemawad@hotmail.com>
+Subject: [PATCH 4/4] rc.local: disable upstream auto-update on every boot
+
+The stock IoT Box runs `git remote set-url ... odoo/odoo.git` followed by
+`git fetch && git reset --hard FETCH_HEAD` at every boot, which would
+silently revert any local patches we apply.
+
+This patch comments out the auto-update block. The IoT Box will still
+boot normally, but its `/home/pi/odoo` checkout stays at whatever commit
+it shipped with — which is exactly what we want when carrying patches.
+
+If you ever need to re-enable upstream sync, uncomment the block. A
+filamind-specific self-update mechanism (pulling from
+https://github.com/filamind-app/filamind-iotbox) can be wired in later
+without conflicting with this change.
+
+This patch targets the rc.local that ships inside the .img, not a file
+in the Odoo source tree, so it is applied at image-build time by
+scripts/build-image.sh rather than `git apply`.
+
+---
+ etc/rc.local | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/etc/rc.local b/etc/rc.local
+--- a/etc/rc.local
++++ b/etc/rc.local
+@@ -22,15 +22,15 @@ if [ -f $start_wifi ]; then
+   $start_wifi &
+ fi
+
+-# Update current branch
+-cd /home/pi/odoo
+-localbranch=$(sudo -u odoo git symbolic-ref -q --short HEAD)
+-localremote=$(sudo -u odoo git config branch.$localbranch.remote)
+-
+-sudo -u odoo rm -f /home/pi/odoo/.git/shallow.lock
+-sudo -u odoo git remote set-url "${localremote}" "https://github.com/odoo/odoo.git"
+-
+-sudo -u odoo GIT_SSL_NO_VERIFY=1 git fetch "${localremote}" "${localbranch}" --depth=1
+-sudo -u odoo git reset --hard FETCH_HEAD
++# filamind: upstream auto-update DISABLED to preserve local patches.
++# To re-enable, remove the leading '# ' from the lines below.
++# cd /home/pi/odoo
++# localbranch=$(sudo -u odoo git symbolic-ref -q --short HEAD)
++# localremote=$(sudo -u odoo git config branch.$localbranch.remote)
++#
++# sudo -u odoo rm -f /home/pi/odoo/.git/shallow.lock
++# sudo -u odoo git remote set-url "${localremote}" "https://github.com/odoo/odoo.git"
++#
++# sudo -u odoo GIT_SSL_NO_VERIFY=1 git fetch "${localremote}" "${localbranch}" --depth=1
++# sudo -u odoo git reset --hard FETCH_HEAD
+
+ exit 0

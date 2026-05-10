@@ -1,0 +1,130 @@
+From: filamind <abdelmonemawad@hotmail.com>
+Subject: [PATCH 3/4] iot_drivers: add direct URL entry tab to ServerDialog
+
+Replaces the single "Server token" field with a tabbed dialog offering
+two equivalent paths:
+  * "Server URL"     — paste a bare https URL (filamind extension)
+  * "Pairing Token"  — paste the full token from the IoT app (upstream)
+
+The submit button calls `/iot_drivers/connect_to_server` with either
+`{url: ...}` or `{token: ...}` depending on the active tab.
+
+---
+ .../static/src/app/components/dialog/ServerDialog.js | 92 ++++++++++++++++----
+ 1 file changed, 76 insertions(+), 16 deletions(-)
+
+diff --git a/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js b/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js
+--- a/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js
++++ b/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js
+@@ -12,17 +12,21 @@ export class ServerDialog extends Component {
+
+     setup() {
+         this.store = useStore();
+-        this.state = useState({ waitRestart: false, loading: false, error: null });
+-        this.form = useState({ token: "" });
++        this.state = useState({ waitRestart: false, loading: false, error: null, mode: "url" });
++        this.form = useState({ token: "", url: "" });
+     }
+
+     async connectToServer() {
+         this.state.loading = true;
+         this.state.error = null;
++        const params = this.state.mode === "url"
++            ? { url: this.form.url }
++            : { token: this.form.token };
+         try {
+             const data = await this.store.rpc({
+                 url: "/iot_drivers/connect_to_server",
+                 method: "POST",
+-                params: this.form,
++                params,
+             });
+
+             if (data.status === "success") {
+@@ -57,18 +61,74 @@ export class ServerDialog extends Component {
+             <t t-set-slot="header">
+                 Configure Odoo Database
+             </t>
+             <t t-set-slot="body">
+-                <div class="alert alert-warning fs-6 pb-0" role="alert" t-if="!store.base.server_status">
+-                    <ol>
+-                        <li>Install <b>IoT App</b> on your database,</li>
+-                        <li>From the IoT App click on <b>Connect</b> button.</li>
+-                    </ol>
+-                </div>
+-                <div class="mt-3">
+-                    <div class="input-group-sm mb-3" t-if="!store.base.server_status">
+-                        <input type="text" class="form-control" t-model="form.token" placeholder="Server token"/>
++                <t t-if="!store.base.server_status">
++                    <ul class="nav nav-tabs mb-3" role="tablist">
++                        <li class="nav-item" role="presentation">
++                            <button type="button"
++                                    class="nav-link"
++                                    t-att-class="{ active: state.mode === 'url' }"
++                                    t-on-click="() => state.mode = 'url'">
++                                Server URL
++                            </button>
++                        </li>
++                        <li class="nav-item" role="presentation">
++                            <button type="button"
++                                    class="nav-link"
++                                    t-att-class="{ active: state.mode === 'token' }"
++                                    t-on-click="() => state.mode = 'token'">
++                                Pairing Token
++                            </button>
++                        </li>
++                    </ul>
++
++                    <div t-if="state.mode === 'url'">
++                        <div class="alert alert-info fs-6" role="alert">
++                            Enter the URL of your self-hosted Odoo server. The IoT box will connect
++                            directly without going through <code>iot-proxy.odoo.com</code>.
++                        </div>
++                        <div class="input-group-sm mb-3">
++                            <input type="url" class="form-control"
++                                   t-model="form.url"
++                                   placeholder="https://odoo.example.com"/>
++                        </div>
++                    </div>
++
++                    <div t-if="state.mode === 'token'">
++                        <div class="alert alert-warning fs-6 pb-0" role="alert">
++                            <ol>
++                                <li>Install <b>IoT App</b> on your database,</li>
++                                <li>From the IoT App click on <b>Connect</b> button.</li>
++                            </ol>
++                        </div>
++                        <div class="input-group-sm mb-3">
++                            <input type="text" class="form-control"
++                                   t-model="form.token"
++                                   placeholder="Server token"/>
++                        </div>
+                     </div>
+-                    <div class="small" t-else="">
++                </t>
++                <t t-else="">
++                    <div class="small">
+                         <p class="m-0">
+                             Your current database is: <br/>
+                             <strong t-esc="store.base.server_status" />
+                         </p>
+                     </div>
+-                </div>
++                </t>
++
++                <div class="text-danger small mt-2" t-if="state.error" t-esc="state.error" />
+             </t>
+             <t t-set-slot="footer">
+-                <button type="submit" class="btn btn-primary btn-sm" t-if="!store.base.server_status" t-on-click="connectToServer" t-att-disabled="state.loading or !form.token" >Connect</button>
++                <button type="submit"
++                        class="btn btn-primary btn-sm"
++                        t-if="!store.base.server_status"
++                        t-on-click="connectToServer"
++                        t-att-disabled="state.loading or
++                                        (state.mode === 'url' and !form.url) or
++                                        (state.mode === 'token' and !form.token)">
++                    Connect
++                </button>
+                 <button type="button" class="btn btn-danger btn-sm" t-if="store.base.server_status" t-on-click="clearConfiguration">Disconnect</button>
+                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+             </t>

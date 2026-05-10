@@ -1,0 +1,41 @@
+# Image artifacts (built/downloaded — never commit)
+*.img
+*.img.zst
+*.img.zst.*
+*.part
+*.iso
+*.zip
+
+# Build directories
+build/
+dist/
+output/
+upstream/
+.cache/
+
+# Checksums (generated)
+MANIFEST.sha256
+SHA256SUMS
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.local
+.env.*.local
