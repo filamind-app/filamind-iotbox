@@ -9,6 +9,8 @@ set -euo pipefail
 
 INPUT="${1:?usage: $0 <image.img>}"
 [[ -f "${INPUT}" ]] || { echo "not found: ${INPUT}" >&2; exit 1; }
+# Resolve to an absolute path because we cd into the output dir below.
+INPUT="$(readlink -f "${INPUT}")"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${REPO_ROOT}/build/release"
