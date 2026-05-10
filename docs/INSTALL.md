@@ -38,6 +38,8 @@ Best when bringing up a new device.
 
 ### 1. Download
 
+#### Option 1: bash (Linux / macOS / WSL / Git Bash)
+
 ```bash
 curl -fsSL https://github.com/filamind-app/filamind-iotbox/releases/latest/download/download-image.sh -o download-image.sh
 chmod +x download-image.sh
@@ -45,8 +47,36 @@ chmod +x download-image.sh
 ./download-image.sh v1.0.0         # specific version
 ```
 
-The script downloads every release part, verifies SHA-256 at three stages
-(parts → compressed image → final `.img`), reassembles, and decompresses.
+#### Option 2: PowerShell (Windows — no WSL or bash needed)
+
+```powershell
+# Pick the version you want, e.g. 'latest' or 'v1.0.0'
+$tag  = "latest"
+$base = if ($tag -eq "latest") {
+    "https://github.com/filamind-app/filamind-iotbox/releases/latest/download"
+} else {
+    "https://github.com/filamind-app/filamind-iotbox/releases/download/$tag"
+}
+irm "$base/download-image.ps1" -OutFile download-image.ps1
+irm "$base/download-image.cmd" -OutFile download-image.cmd
+.\download-image.cmd $tag
+```
+
+Or, if you prefer a one-liner that runs the script in-place:
+
+```powershell
+irm "https://github.com/filamind-app/filamind-iotbox/releases/latest/download/download-image.ps1" -OutFile "$env:TEMP\dl.ps1"; & "$env:TEMP\dl.ps1"
+```
+
+**Prerequisites on Windows:**
+```powershell
+winget install --id GitHub.cli
+winget install --id Facebook.Zstandard
+gh auth login            # one-time GitHub authentication
+```
+
+> Both download scripts (bash and PowerShell) verify SHA-256 at three stages
+> (parts → compressed image → final `.img`), reassemble, and decompress.
 
 ### 2. Flash
 
@@ -136,7 +166,10 @@ Produces `*.img.zst.NN.part` chunks (≤ 1.9 GB each) and `MANIFEST.sha256`.
 
 | Symptom | Likely cause |
 |---|---|
-| `download-image.sh: gh: command not found` | install [GitHub CLI](https://cli.github.com/) **or** install `curl` + `jq` (script auto-falls-back) |
+| `download-image.sh: gh: command not found` | install [GitHub CLI](https://cli.github.com/) **or** install `curl` + `jq` (bash script auto-falls-back) |
+| `gh : The term 'gh' is not recognized…` (PowerShell) | `winget install --id GitHub.cli` then restart PowerShell |
+| `zstd not found on PATH` (PowerShell warning) | `winget install --id Facebook.Zstandard` then re-run; or extract the `.img.zst` with 7-Zip 22+ |
+| `running scripts is disabled on this system` (PowerShell) | use the included `download-image.cmd` wrapper (it bypasses the policy for one run) |
 | `sha256sum: WARNING: ... computed checksum did NOT match` | re-download — a release asset was truncated |
 | Box reboots into pairing screen after `Connect` | server URL is unreachable, or TLS cert is untrusted |
 | Patches don't apply on a running box | the box has the upstream auto-update enabled — patches were already wiped. Apply patch 4 first, then re-apply 1-3 |

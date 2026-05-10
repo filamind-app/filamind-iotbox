@@ -97,6 +97,31 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y shellcheck
       - run: shellcheck -e SC1091,SC2086,SC2155 scripts/*.sh
 
+  powershell-syntax:
+    name: Parse-check PowerShell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: pwsh AST tokenize each .ps1 (no execution)
+        shell: pwsh
+        run: |
+          $fail = 0
+          Get-ChildItem -Path scripts -Filter *.ps1 | ForEach-Object {
+              $errors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile(
+                  $_.FullName, [ref]$null, [ref]$errors) | Out-Null
+              if ($errors) {
+                  Write-Host "::error file=$($_.FullName)::PowerShell parse errors:"
+                  $errors | ForEach-Object {
+                      Write-Host "  $($_.Extent.StartLineNumber): $($_.Message)"
+                  }
+                  $fail = 1
+              } else {
+                  Write-Host "OK $($_.Name)"
+              }
+          }
+          exit $fail
+
   manifest-validity:
     name: Repo structure sanity
     runs-on: ubuntu-latest
@@ -111,6 +136,8 @@ jobs:
             scripts/build-image.sh
             scripts/split-image.sh
             scripts/download-image.sh
+            scripts/download-image.ps1
+            scripts/download-image.cmd
             scripts/flash-patches.sh
             scripts/verify-image.sh
             src/iot_drivers/static/src/app/components/dialog/ServerDialog.js

@@ -90,13 +90,17 @@ jobs:
              build/release/*.part \
              build/release/MANIFEST.sha256 \
              scripts/download-image.sh \
+             scripts/download-image.ps1 \
+             scripts/download-image.cmd \
              --title "filamind-iotbox ${{ steps.ver.outputs.version }}" \
              --notes "$(cat <<EOF
           ## filamind-iotbox ${{ steps.ver.outputs.version }}
 
           Patched Odoo IoT Box image with direct server-URL entry on the settings page.
 
-          ### Download & flash
+          ### Download & reassemble
+
+          **Linux / macOS / WSL** (bash):
 
           \`\`\`bash
           curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.ver.outputs.version }}/download-image.sh -o download-image.sh
@@ -104,7 +108,23 @@ jobs:
           ./download-image.sh ${{ steps.ver.outputs.version }}
           \`\`\`
 
-          The script verifies SHA-256 at every step and reassembles the image automatically.
+          **Windows** (PowerShell — no WSL needed):
+
+          \`\`\`powershell
+          irm "https://github.com/${{ github.repository }}/releases/download/${{ steps.ver.outputs.version }}/download-image.ps1" -OutFile download-image.ps1
+          irm "https://github.com/${{ github.repository }}/releases/download/${{ steps.ver.outputs.version }}/download-image.cmd" -OutFile download-image.cmd
+          .\download-image.cmd ${{ steps.ver.outputs.version }}
+          \`\`\`
+
+          Or one-liner (PowerShell):
+
+          \`\`\`powershell
+          irm "https://github.com/${{ github.repository }}/releases/download/${{ steps.ver.outputs.version }}/download-image.ps1" | iex
+          \`\`\`
+
+          Prerequisites on Windows: \`winget install --id GitHub.cli\` and \`winget install --id Facebook.Zstandard\`.
+
+          All scripts verify SHA-256 three times — on each part, on the concatenated .zst, and on the final .img — so corrupted downloads are caught before flashing.
 
           ### Upstream
 

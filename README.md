@@ -67,12 +67,31 @@ filamind-iotbox/
 
 ### Get the image
 
+#### Linux / macOS / WSL
+
 ```bash
 curl -fsSL https://github.com/filamind-app/filamind-iotbox/releases/latest/download/download-image.sh \
   | bash -s -- latest ./iotbox-image
 ```
 
-The script downloads all release parts, verifies SHA-256 at each stage, and writes
+#### Windows (PowerShell — no WSL needed)
+
+```powershell
+# One-shot: fetch + run the PowerShell script
+$tag  = (gh release view --repo filamind-app/filamind-iotbox --json tagName -q .tagName)
+$base = "https://github.com/filamind-app/filamind-iotbox/releases/download/$tag"
+irm "$base/download-image.ps1" -OutFile download-image.ps1
+irm "$base/download-image.cmd" -OutFile download-image.cmd
+.\download-image.cmd $tag
+```
+
+Or just **double-click `download-image.cmd`** after putting both files in a folder.
+
+Prerequisites on Windows:
+- `winget install --id GitHub.cli`
+- `winget install --id Facebook.Zstandard`
+
+All scripts download every release part, verify SHA-256 at each stage, and write
 a single `iotbox-filamind-*.img` ready for flashing. See [docs/INSTALL.md](docs/INSTALL.md).
 
 ### Flash to SD card

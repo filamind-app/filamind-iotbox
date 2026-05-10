@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and
 
 ## [Unreleased]
 
+### Added — Windows-native download scripts
+- `scripts/download-image.ps1` — PowerShell port of `download-image.sh`,
+  uses `Get-FileHash` for SHA-256 verification and `cmd /c copy /b` for
+  binary concatenation. No WSL or Git Bash required.
+- `scripts/download-image.cmd` — double-clickable wrapper that invokes
+  PowerShell with `-ExecutionPolicy Bypass` so users don't have to fight
+  the default execution policy.
+- Both files are now bundled in every Release alongside the bash version
+  via `release.yml`.
+- CI: new `powershell-syntax` job that AST-tokenises every `.ps1` on the
+  Linux runner via `pwsh`, catching parse errors before release.
+
 ### Added
 - **Pairing-code support** in the Server URL tab — paired with the
   [filamind-iot](https://github.com/filamind-app/filamind-iot) Odoo addon.
