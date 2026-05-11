@@ -15,7 +15,7 @@ endpoint).
 ---
 --- a/addons/iot_drivers/controllers/homepage.py
 +++ b/addons/iot_drivers/controllers/homepage.py
-@@ -144,6 +144,53 @@
+@@ -144,6 +144,54 @@
                                    % (ok_count, len(report['checks'])))
          return json.dumps(report)
 
