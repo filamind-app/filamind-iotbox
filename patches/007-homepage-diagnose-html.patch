@@ -12,60 +12,87 @@ Hit it from any browser on the same network as the box:
 Pairs with patch 006 (which added the /iot_drivers/diagnose JSON
 endpoint).
 
+Implementation notes
+--------------------
+* Re-extracts the JSON body via `.get_data(as_text=True)` because
+  the diagnose route is wrapped by Odoo's http layer in a Response
+  object, not a raw string.
+* Builds the HTML via str.replace() instead of `%` formatting so
+  literal `%` characters in CSS (e.g. `width:100%`) don't trigger
+  Python's format-spec interpreter.
+
 ---
 --- a/addons/iot_drivers/controllers/homepage.py
 +++ b/addons/iot_drivers/controllers/homepage.py
-@@ -144,6 +144,54 @@
+@@ -144,6 +144,72 @@
                                    % (ok_count, len(report['checks'])))
          return json.dumps(report)
 
 +    @route.iot_route('/iot_drivers/diagnose.html', type='http', cors='*')
 +    def diagnose_html(self):
-+        """Browser-friendly view of the /iot_drivers/diagnose JSON report."""
-+        raw = json.loads(self.diagnose())
++        """Browser-friendly view of the /iot_drivers/diagnose JSON."""
++        # diagnose() returns a Response wrapping the JSON string;
++        # .get_data() pulls the raw body back out.
++        body = self.diagnose().get_data(as_text=True)
++        raw = json.loads(body)
 +        checks = raw.get('checks', [])
-+        rows = ''.join(
-+            '<tr class="%s"><td>%s</td><td>%s</td><td><code>%s</code></td></tr>'
-+            % ('ok' if c.get('ok') else 'bad',
-+               'PASS' if c.get('ok') else 'FAIL',
-+               c.get('name', ''),
-+               (c.get('detail', '') or '').replace('<', '&lt;'))
-+            for c in checks
++        rows_parts = []
++        for c in checks:
++            cls = 'ok' if c.get('ok') else 'bad'
++            label = 'PASS' if c.get('ok') else 'FAIL'
++            name = (c.get('name') or '').replace('<', '&lt;')
++            detail = (c.get('detail') or '').replace('<', '&lt;')
++            rows_parts.append(
++                '<tr class="' + cls + '"><td>' + label
++                + '</td><td>' + name + '</td><td><code>'
++                + detail + '</code></td></tr>'
++            )
++        rows = ''.join(rows_parts)
++        summary = raw.get('summary', '?')
++        if summary == 'all_ok':
++            summary_class = 'all_ok'
++        elif 'passed' in summary:
++            summary_class = 'partial'
++        else:
++            summary_class = 'fail'
++        # str.replace not %-format: literal `%` in CSS (width:100%)
++        # would otherwise be parsed as a format spec.
++        html = (
++            '<!doctype html><html lang="en"><head><meta charset="utf-8"/>'
++            '<title>filamind diagnose</title>'
++            '<style>'
++            'body{font:14px system-ui,sans-serif;background:#1a1a1a;'
++            'color:#eee;margin:0;padding:1rem}'
++            'h1{margin-top:0}'
++            'table{border-collapse:collapse;width:100%;margin:1rem 0}'
++            'th,td{padding:0.5rem 0.75rem;text-align:left;'
++            'border-bottom:1px solid #333}'
++            'th{background:#222;color:#aaa;font-weight:600}'
++            'tr.ok td:first-child{color:#4caf50;font-weight:700}'
++            'tr.bad td:first-child{color:#f44336;font-weight:700}'
++            'code{background:#222;padding:2px 6px;border-radius:3px;'
++            'font-size:12px;color:#bbb;word-break:break-all}'
++            '.summary{padding:0.75rem;border-radius:4px;margin:1rem 0}'
++            '.summary.all_ok{background:#1b3a1b;border:1px solid #4caf50}'
++            '.summary.partial{background:#3a2a1b;border:1px solid #ff9800}'
++            '.summary.fail{background:#3a1b1b;border:1px solid #f44336}'
++            '.muted{color:#888;font-family:monospace;font-size:12px}'
++            '</style></head><body>'
++            '<h1>filamind self-diagnose</h1>'
++            '<div class="muted">Server URL: __SERVER__ | Timestamp: __TS__</div>'
++            '<div class="summary __SUMCLASS__">__SUMMARY__</div>'
++            '<table><thead><tr><th>Status</th><th>Check</th>'
++            '<th>Detail</th></tr></thead><tbody>__ROWS__</tbody></table>'
++            '<p class="muted">Raw JSON: '
++            '<a href="/iot_drivers/diagnose">/iot_drivers/diagnose</a>'
++            '</p></body></html>'
 +        )
-+        return ('<!doctype html><html><head><meta charset="utf-8"/>'
-+                '<title>filamind diagnose</title>'
-+                '<style>'
-+                'body{font:14px system-ui,sans-serif;background:#1a1a1a;'
-+                '     color:#eee;margin:0;padding:1rem}'
-+                'h1{margin-top:0}'
-+                'table{border-collapse:collapse;width:100%;margin:1rem 0}'
-+                'th,td{padding:0.5rem 0.75rem;text-align:left;'
-+                '      border-bottom:1px solid #333}'
-+                'th{background:#222;color:#aaa;font-weight:600}'
-+                'tr.ok td:first-child{color:#4caf50;font-weight:700}'
-+                'tr.bad td:first-child{color:#f44336;font-weight:700}'
-+                'code{background:#222;padding:2px 6px;border-radius:3px;'
-+                '     font-size:12px;color:#bbb}'
-+                '.summary{padding:0.75rem;border-radius:4px;margin:1rem 0}'
-+                '.summary.all_ok{background:#1b3a1b;border:1px solid #4caf50}'
-+                '.summary.partial{background:#3a2a1b;border:1px solid #ff9800}'
-+                '.summary.fail{background:#3a1b1b;border:1px solid #f44336}'
-+                '.muted{color:#888;font-family:monospace;font-size:12px}'
-+                '</style></head><body>'
-+                '<h1>filamind self-diagnose</h1>'
-+                '<div class="muted">Server URL: %s | Timestamp: %s</div>'
-+                '<div class="summary %s">%s</div>'
-+                '<table><thead><tr><th>Status</th><th>Check</th>'
-+                '<th>Detail</th></tr></thead><tbody>%s</tbody></table>'
-+                '<p class="muted">Raw JSON: '
-+                '<a href="/iot_drivers/diagnose">/iot_drivers/diagnose</a>'
-+                '</p></body></html>'
-+                % (raw.get('server_url') or '(unset)',
-+                   raw.get('timestamp', ''),
-+                   ('all_ok' if raw.get('summary') == 'all_ok'
-+                    else ('partial' if 'passed' in raw.get('summary', '')
-+                          else 'fail')),
-+                   raw.get('summary', '?'), rows))
++        return (html
++                .replace('__SERVER__', str(raw.get('server_url') or '(unset)'))
++                .replace('__TS__', str(raw.get('timestamp', '')))
++                .replace('__SUMCLASS__', summary_class)
++                .replace('__SUMMARY__', summary)
++                .replace('__ROWS__', rows))
 +
      @route.iot_route('/iot_drivers/iot_logs', type='http', cors='*')
      def get_iot_logs(self):
