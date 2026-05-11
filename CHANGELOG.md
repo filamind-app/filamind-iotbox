@@ -6,6 +6,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and
 
 ## [Unreleased]
 
+### Fixed — transport.py circular import (patch 005 was unloadable)
+
+> Phase-2 transport selector (`patch 005`) failed to load on the
+> first real-box deploy at deltafabs.com:
+>
+>     CRITICAL ? odoo.modules.module: Couldn't load module iot_drivers
+>     ImportError: cannot import name 'communication' from partially
+>     initialized module 'odoo.addons.iot_drivers' (most likely due
+>     to a circular import)
+>     File ".../iot_drivers/tools/transport.py", line 27,
+>     in <module> from odoo.addons.iot_drivers import communication
+>
+> `iot_drivers/__init__.py` → `connection_manager` → `main` →
+> `tools.transport` (us). `transport.py` then re-imported from
+> `iot_drivers` while it was still partially initialised → boom.
+>
+> Net effect on a real box: ALL `/iot_drivers/*` endpoints 404
+> because the addon never finished loading. The box was dead until
+> patch 005 was reverted.
+
+Fix: defer `from odoo.addons.iot_drivers import communication` to
+inside `_PollingTransportBase._dispatch()` where it's actually
+used. By the time a poll fires the module load is complete and
+the cycle is resolved.
+
+Also drops the unused `import time` flagged by ruff that snuck in
+when the file was first written.
+
+Verified end-to-end on the customer box: patch 005 + new
+transport.py applied, `systemctl restart odoo`, `iot_drivers`
+loads cleanly, `/iot_drivers/diagnose` and
+`/iot_drivers/diagnose.html` both return 200.
+
 ### Fixed — patch 007 runtime bugs (uncovered by first real-box deploy)
 
 > Phase-25 patch 007 (the `/iot_drivers/diagnose.html` HTML
@@ -34,7 +67,6 @@ the `<code>` so long URLs don't overflow on tablets).
 Both fixes have been hot-applied to the customer box and verified
 working: `https://<box>/iot_drivers/diagnose.html` returns 200
 with the expected red/green table.
-
 ### Fixed — Phase 25: self-signed TLS cert (filamind-iotbox v0.6.0)
 
 > Resolves the persistent "This IoT Box doesn't have a valid

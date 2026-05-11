@@ -18,13 +18,19 @@ communication.handle_message see no change.
 """
 import logging
 import threading
-import time
 import urllib.parse
 
 import requests
 import websocket
 
-from odoo.addons.iot_drivers import communication
+# NOTE: communication is NOT imported at module level — that creates a
+# circular dependency because iot_drivers.__init__ -> connection_manager
+# -> main -> tools.transport, while communication is also imported via
+# main. The first deploy on a real customer box hit:
+#   ImportError: cannot import name 'communication' from partially
+#   initialized module 'odoo.addons.iot_drivers'
+# The handler is only used inside _PollingTransportBase._dispatch, so
+# we defer the import to call time when the cycle has resolved.
 from odoo.addons.iot_drivers.tools import helpers, system
 from odoo.addons.iot_drivers.tools.system import IOT_IDENTIFIER
 from odoo.addons.iot_drivers.websocket_client import (
@@ -127,6 +133,8 @@ class _PollingTransportBase(threading.Thread):
                 payload['iot_identifier'] != IOT_IDENTIFIER:
             return
         try:
+            # Lazy import — see module-top NOTE about the circular dep.
+            from odoo.addons.iot_drivers import communication
             result = communication.handle_message(method, 'http', **payload)
         except Exception:
             _logger.exception("Driver dispatch failed for %s", method)
