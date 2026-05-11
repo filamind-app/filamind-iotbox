@@ -89,6 +89,14 @@ grep -q 'Transport.create' \
     || fail "patch 5 not applied (main.py still uses WebsocketClient)"
 ok "Patch 5 (transport selector) applied"
 
+# Patch 6 — /iot_drivers/diagnose endpoint added
+homepage="${ROOT}/home/pi/odoo/addons/iot_drivers/controllers/homepage.py"
+grep -q '/iot_drivers/diagnose' "${homepage}" \
+    || fail "patch 6 not applied (diagnose endpoint missing)"
+grep -q 'def diagnose' "${homepage}" \
+    || fail "patch 6 not applied (diagnose method missing)"
+ok "Patch 6 (self-diagnose) applied"
+
 # Version stamp
 if [[ -f "${ROOT}/etc/filamind/version" ]]; then
     log "Version stamp:"

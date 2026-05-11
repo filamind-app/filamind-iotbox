@@ -93,6 +93,9 @@ install -m 0644 \
 log "Applying patch 005 (main.py uses Transport.create)"
 patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/005-main-py-transport-selector.patch"
 
+log "Applying patch 006 (homepage.py /iot_drivers/diagnose)"
+patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/006-homepage-add-diagnose.patch"
+
 log "Replacing /etc/rc.local"
 install -m 0755 "${REPO_ROOT}/src/etc/rc.local" "${ROOT}/etc/rc.local"
 

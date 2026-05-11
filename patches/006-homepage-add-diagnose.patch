@@ -1,0 +1,109 @@
+From: filamind <abdelmonemawad@hotmail.com>
+Subject: [PATCH 6/6] iot_drivers/homepage: add /iot_drivers/diagnose endpoint
+
+Adds a self-diagnose endpoint that runs a 5-step health check and
+returns a copy-pasteable JSON report:
+
+  1. DNS resolution of the configured remote_server
+  2. TCP reachability to the server's HTTP/HTTPS port
+  3. Odoo /iot/setup HTTP probe
+  4. WebSocket upgrade probe (detects the OpenLiteSpeed
+     'Connection: Keep-Alive' bug that breaks RFC 6455)
+  5. Long-poll endpoint /filamind_iot/poll_short reachability
+
+Hit it with:
+  curl -k https://<box-ip>/iot_drivers/diagnose
+
+Pairs with filamind_iot v0.4.0 server-side endpoints. Lets the user
+self-diagnose the proxy/transport setup before opening a support
+ticket.
+
+---
+--- a/addons/iot_drivers/controllers/homepage.py
++++ b/addons/iot_drivers/controllers/homepage.py
+@@ -65,6 +65,85 @@
+             'message': 'Odoo service restarted',
+         })
+ 
++    @route.iot_route('/iot_drivers/diagnose', type='http', cors='*')
++    def diagnose(self):
++        """filamind self-diagnose. Runs a 5-step network/transport health
++        check and returns a copy-pasteable JSON report.
++        """
++        import socket as _socket
++        import time as _time
++        import urllib.parse as _urlparse
++        import requests as _requests
++        try:
++            import websocket as _websocket
++        except Exception:
++            _websocket = None
++
++        report = {'timestamp': _time.time(), 'checks': []}
++        server_url = helpers.get_odoo_server_url() or ''
++        report['server_url'] = server_url
++        if not server_url:
++            report['summary'] = 'no_server_configured'
++            return json.dumps(report)
++
++        url_parsed = _urlparse.urlsplit(server_url)
++        host = url_parsed.hostname or ''
++        port = url_parsed.port or (443 if url_parsed.scheme == 'https' else 80)
++
++        def _add(name, ok, detail=''):
++            report['checks'].append({'name': name, 'ok': bool(ok),
++                                     'detail': str(detail)[:300]})
++
++        try:
++            _add('dns', True, _socket.gethostbyname(host))
++        except Exception as exc:
++            _add('dns', False, exc)
++
++        try:
++            with _socket.create_connection((host, port), timeout=5):
++                _add('tcp', True, '%s:%s' % (host, port))
++        except Exception as exc:
++            _add('tcp', False, exc)
++
++        try:
++            r = _requests.post(server_url.rstrip('/') + '/iot/setup',
++                               json={'params': {'iot_box': {}, 'devices': {}}},
++                               timeout=10, verify=False)
++            _add('iot_setup', 200 <= r.status_code < 500,
++                 'HTTP %s' % r.status_code)
++        except Exception as exc:
++            _add('iot_setup', False, exc)
++
++        if _websocket is not None:
++            try:
++                scheme = url_parsed.scheme.replace('http', 'ws', 1)
++                ws_url = _urlparse.urlunsplit(
++                    (scheme, url_parsed.netloc, 'websocket', '', ''))
++                ws = _websocket.create_connection(ws_url, timeout=8)
++                ws.close()
++                _add('websocket', True, ws_url)
++            except Exception as exc:
++                _add('websocket', False,
++                     '%s -- likely a reverse-proxy WS-upgrade bug '
++                     '(OpenLiteSpeed Connection:Keep-Alive, etc.)' % exc)
++        else:
++            _add('websocket', False, 'websocket-client not installed')
++
++        try:
++            r = _requests.post(server_url.rstrip('/') + '/filamind_iot/poll_short',
++                               json={'identifier': '', 'token': '', 'last_seq': 0},
++                               timeout=8, verify=False)
++            _add('longpoll', r.status_code in (200, 401),
++                 'HTTP %s' % r.status_code)
++        except Exception as exc:
++            _add('longpoll', False, exc)
++
++        ok_count = sum(1 for c in report['checks'] if c['ok'])
++        report['summary'] = ('all_ok' if ok_count == len(report['checks'])
++                             else '%d/%d checks passed'
++                                  % (ok_count, len(report['checks'])))
++        return json.dumps(report)
++
+     @route.iot_route('/iot_drivers/iot_logs', type='http', cors='*')
+     def get_iot_logs(self):
+         logs_path = "/var/log/odoo/odoo-server.log" if IS_RPI else Path().absolute().parent.joinpath('odoo.log')

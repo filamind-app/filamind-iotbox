@@ -6,6 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and
 
 ## [Unreleased]
 
+### Added — Phase 3: Self-diagnose endpoint (filamind-iotbox v0.3.0)
+
+> Roadmap Phase 3 of 16. The box now exposes a one-shot health-check
+> URL that runs DNS + TCP + HTTP + WebSocket + LongPoll probes and
+> returns a copy-pasteable JSON report.
+
+- **New patch 006** — adds `GET /iot_drivers/diagnose` to homepage.py.
+  Hit it with `curl -k https://<box-ip>/iot_drivers/diagnose`.
+- The 5 checks the report contains:
+  1. `dns` — DNS resolution of the configured `remote_server`
+  2. `tcp` — raw TCP reachability to that host:port
+  3. `iot_setup` — `POST /iot/setup` HTTP probe
+  4. `websocket` — full WebSocket upgrade probe (catches the
+     OpenLiteSpeed `Connection: Keep-Alive` bug that was blocking
+     filamind-iotbox v0.1.0 customers)
+  5. `longpoll` — `POST /filamind_iot/poll_short` reachability
+- `verify-image.sh` extended to assert the diagnose endpoint shipped.
+- CI manifest list updated.
+
 ### Added — Phase 2: Multi-transport client (filamind-iotbox v0.2.0)
 
 > Roadmap Phase 2 of 16. Box-side companion to filamind_iot v0.4.0
