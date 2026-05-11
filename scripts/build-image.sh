@@ -99,10 +99,14 @@ patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/006-homepage-add-diagnose.pat
 log "Applying patch 007 (homepage.py /iot_drivers/diagnose.html)"
 patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/007-homepage-diagnose-html.patch"
 
-log "Installing filamind-status helper into /usr/local/bin"
-install -m 0755 \
-    "${REPO_ROOT}/src/usr/local/bin/filamind-status" \
-    "${ROOT}/usr/local/bin/filamind-status"
+log "Installing filamind helper scripts into /usr/local/bin"
+for helper in filamind-status filamind-make-self-signed-cert; do
+    src="${REPO_ROOT}/src/usr/local/bin/${helper}"
+    if [[ -f "$src" ]]; then
+        install -m 0755 "$src" "${ROOT}/usr/local/bin/${helper}"
+        log "  installed ${helper}"
+    fi
+done
 
 log "Replacing /etc/rc.local"
 install -m 0755 "${REPO_ROOT}/src/etc/rc.local" "${ROOT}/etc/rc.local"
