@@ -133,6 +133,8 @@ jobs:
             patches/002-homepage-add-url-endpoint.patch
             patches/003-server-dialog-url-input.patch
             patches/004-rc-local-disable-autoupdate.patch
+            patches/005-main-py-transport-selector.patch
+            src/iot_drivers/tools/transport.py
             scripts/build-image.sh
             scripts/split-image.sh
             scripts/download-image.sh

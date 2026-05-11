@@ -85,6 +85,14 @@ install -m 0644 \
     "${REPO_ROOT}/src/iot_drivers/static/src/app/components/dialog/ServerDialog.js" \
     "${ODOO_DIR}/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js"
 
+log "Installing transport.py (multi-transport selector)"
+install -m 0644 \
+    "${REPO_ROOT}/src/iot_drivers/tools/transport.py" \
+    "${ODOO_DIR}/addons/iot_drivers/tools/transport.py"
+
+log "Applying patch 005 (main.py uses Transport.create)"
+patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/005-main-py-transport-selector.patch"
+
 log "Replacing /etc/rc.local"
 install -m 0755 "${REPO_ROOT}/src/etc/rc.local" "${ROOT}/etc/rc.local"
 

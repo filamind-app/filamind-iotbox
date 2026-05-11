@@ -1,0 +1,40 @@
+From: filamind <abdelmonemawad@hotmail.com>
+Subject: [PATCH 5/5] iot_drivers/main: use Transport.create() instead of WebsocketClient
+
+Switches the box from a hard-wired WebSocket client to the new
+filamind multi-transport selector at tools/transport.py (added by
+build-image.sh as a wholesale file copy).
+
+The selector probes WS first; if the proxy in front of Odoo is broken
+(e.g. OpenLiteSpeed adding `Connection: Keep-Alive` to the 101 Switching
+Protocols response), it auto-falls-back to HTTP long-poll, then to
+short-poll. The choice is cached in odoo.conf so subsequent boots skip
+the probe.
+
+The transport's surface (start/stop + on_message dispatch) is identical
+to WebsocketClient, so iot_handlers and communication.handle_message
+need no other change.
+
+---
+ addons/iot_drivers/main.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/addons/iot_drivers/main.py b/addons/iot_drivers/main.py
+--- a/addons/iot_drivers/main.py
++++ b/addons/iot_drivers/main.py
+@@ -10,6 +10,6 @@ import time
+
+ from odoo.addons.iot_drivers.tools import certificate, helpers, system, upgrade, wifi
+-from odoo.addons.iot_drivers.websocket_client import WebsocketClient
++from odoo.addons.iot_drivers.tools.transport import Transport
+
+ if system.IS_RPI:
+     from dbus.mainloop.glib import DBusGMainLoop
+@@ -158,6 +158,6 @@ class Manager(Thread):
+         schedule.every().monday.at("00:00").do(upgrade.check_git_branch)
+
+         # Set up the websocket connection
+-        ws_client = WebsocketClient(self.ws_channel)
++        ws_client = Transport.create(self.ws_channel)
+         if ws_client:
+             ws_client.start()

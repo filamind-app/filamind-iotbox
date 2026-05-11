@@ -79,6 +79,16 @@ if grep -E '^[[:space:]]*sudo -u odoo git fetch' "${ROOT}/etc/rc.local" | grep -
 fi
 ok "Patch 4 (rc.local) applied"
 
+# Patch 5 — multi-transport: tools/transport.py present + main.py uses it
+transport="${ROOT}/home/pi/odoo/addons/iot_drivers/tools/transport.py"
+[[ -f "${transport}" ]] || fail "patch 5 not applied (tools/transport.py missing)"
+grep -q 'class Transport' "${transport}" \
+    || fail "patch 5 not applied (Transport class missing)"
+grep -q 'Transport.create' \
+    "${ROOT}/home/pi/odoo/addons/iot_drivers/main.py" \
+    || fail "patch 5 not applied (main.py still uses WebsocketClient)"
+ok "Patch 5 (transport selector) applied"
+
 # Version stamp
 if [[ -f "${ROOT}/etc/filamind/version" ]]; then
     log "Version stamp:"

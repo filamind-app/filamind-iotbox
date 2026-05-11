@@ -6,6 +6,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and
 
 ## [Unreleased]
 
+### Added — Phase 2: Multi-transport client (filamind-iotbox v0.2.0)
+
+> Roadmap Phase 2 of 16. Box-side companion to filamind_iot v0.4.0
+> server endpoints. The box now survives any reverse-proxy that
+> mishandles WebSocket (e.g. OpenLiteSpeed Connection: Keep-Alive bug).
+
+- **New file** `src/iot_drivers/tools/transport.py` — installed wholesale
+  by `build-image.sh`. Defines:
+  * `WebSocketTransport` — wraps the upstream WebsocketClient (lowest
+    latency, default).
+  * `LongPollTransport` — POSTs `/filamind_iot/poll` every cycle,
+    blocks up to 30 s on the server.
+  * `ShortPollTransport` — POSTs `/filamind_iot/poll_short` every
+    `interval` seconds (default 5).
+  * `Transport.create(channel, server_url)` — at boot, reads the
+    cached choice from `[iot.box] transport` in `odoo.conf`, or
+    auto-probes WebSocket → LongPoll → ShortPoll and persists.
+- **New patch 005** — `main.py` swaps `WebsocketClient(...)` for
+  `Transport.create(...)`. Drivers and `communication.handle_message`
+  see no change.
+- `build-image.sh` updated: copies `transport.py` to the box's
+  `iot_drivers/tools/` and applies patch 005 alongside the others.
+- `verify-image.sh` extended to assert `tools/transport.py` is present
+  and `main.py` references `Transport.create`.
+- CI's `manifest-validity` step now also requires the new patch and
+  transport module to exist.
+
 ### Added — Windows-native download scripts
 - `scripts/download-image.ps1` — PowerShell port of `download-image.sh`,
   uses `Get-FileHash` for SHA-256 verification and `cmd /c copy /b` for
