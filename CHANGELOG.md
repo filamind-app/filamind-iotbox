@@ -6,6 +6,47 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and
 
 ## [Unreleased]
 
+### Fixed — Phase 25: self-signed TLS cert (filamind-iotbox v0.6.0)
+
+> Resolves the persistent "This IoT Box doesn't have a valid
+> certificate" warning surfaced by the upstream homepage UI.
+> Upstream Odoo IoT Boxes fetch a wildcard cert from
+> iot-proxy.odoo.com after pairing. filamind-iotbox skips that
+> proxy by design, which left the box's own HTTPS without a
+> cert and the homepage flagged it. This phase generates a
+> 10-year self-signed cert at first boot.
+
+- New helper `/usr/local/bin/filamind-make-self-signed-cert`:
+  - Idempotent — exits cleanly if a valid (≥ 30 days remaining)
+    cert is already in place, or if a real upstream-managed
+    cert exists at the standard path.
+  - Generates a 2048-bit RSA cert with SAN entries for hostname,
+    short name, `*.local` mDNS, `localhost`, `127.0.0.1`, and
+    every detected LAN IP. Subject: `O=filamind-iotbox,
+    OU=self-signed, CN=<fqdn>`.
+  - Symlinks into the upstream paths
+    (`/etc/ssl/certs/nginx-cert.crt`,
+    `/etc/ssl/private/nginx-cert.key`) so nginx + the homepage
+    UI find them without code changes.
+  - Drops `/etc/filamind/cert-source = self-signed` so any
+    cosmetic UI improvement can later show "self-signed" rather
+    than the alarming "no cert".
+  - Reloads nginx if running, swallows the reload error if not.
+- `src/etc/rc.local` now invokes the helper at boot. Both
+  build-image.sh + flash-patches.sh install the helper; the
+  flash path also generates the cert immediately so the next
+  homepage hit reflects the new state.
+- `verify-image.sh` asserts both the helper file and the
+  rc.local invocation are present.
+- Smoke-tested locally: openssl produces a valid 10-year cert
+  with the expected subject and full SAN list.
+
+Browsers will still show "Not secure / proceed anyway?" the
+first time — that's expected for any self-signed cert. Admins
+who want a clean lock icon can replace the symlinked files
+with a CA-signed cert; the helper detects that and stays out
+of the way.
+
 ### Added — Phase 20: Box image polish (filamind-iotbox v0.5.0)
 
 > Two small but high-impact additions for support / debugging.

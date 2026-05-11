@@ -30,6 +30,7 @@ scp -q "${REPO_ROOT}"/patches/007-homepage-diagnose-html.patch "${TARGET}:/tmp/"
 scp -q "${REPO_ROOT}"/src/iot_drivers/static/src/app/components/dialog/ServerDialog.js "${TARGET}:/tmp/"
 scp -q "${REPO_ROOT}"/src/etc/rc.local "${TARGET}:/tmp/rc.local.filamind"
 scp -q "${REPO_ROOT}"/src/usr/local/bin/filamind-status "${TARGET}:/tmp/"
+scp -q "${REPO_ROOT}"/src/usr/local/bin/filamind-make-self-signed-cert "${TARGET}:/tmp/"
 
 # Vendor drivers — new files, no patches needed. Copied wholesale to
 # /home/pi/odoo/addons/iot_drivers/drivers/ where Odoo's driver
@@ -71,8 +72,13 @@ sudo install -m 0644 /tmp/ServerDialog.js \
 
 sudo install -m 0755 /tmp/rc.local.filamind /etc/rc.local
 
-# filamind-status helper (in PATH)
+# filamind helper scripts (in PATH)
 sudo install -m 0755 /tmp/filamind-status /usr/local/bin/filamind-status
+sudo install -m 0755 /tmp/filamind-make-self-signed-cert \
+    /usr/local/bin/filamind-make-self-signed-cert
+# Generate the cert immediately so the next homepage hit shows
+# "self-signed by filamind" rather than "no cert"
+sudo /usr/local/bin/filamind-make-self-signed-cert || true
 
 # Vendor drivers
 sudo mkdir -p "${ODOO}/addons/iot_drivers/drivers"
@@ -89,7 +95,8 @@ rm -f /tmp/001-helpers-optional-args.patch \
       /tmp/007-homepage-diagnose-html.patch \
       /tmp/ServerDialog.js \
       /tmp/rc.local.filamind \
-      /tmp/filamind-status
+      /tmp/filamind-status \
+      /tmp/filamind-make-self-signed-cert
 rm -rf /tmp/filamind_drivers
 
 # Restart Odoo to pick up changes

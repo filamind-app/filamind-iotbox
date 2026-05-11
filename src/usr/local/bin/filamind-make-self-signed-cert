@@ -1,0 +1,94 @@
+#!/bin/bash
+# filamind-make-self-signed-cert — generate a 10-year self-signed
+# TLS cert for the IoT Box's own HTTPS, when the upstream
+# iot-proxy.odoo.com cert-provisioning path is bypassed.
+#
+# Idempotent: if a valid cert is already in place, exits 0 with no
+# changes. Run from rc.local at boot.
+#
+# Why this exists
+# ---------------
+# Upstream Odoo IoT Box fetches a wildcard cert from
+# iot-proxy.odoo.com after pairing. filamind-iotbox skips that
+# proxy (the whole point of this fork), which leaves the box's
+# own HTTPS without a cert and surfaces a "This IoT Box doesn't
+# have a valid certificate" warning in the homepage UI.
+#
+# This script generates a self-signed cert covering the box's
+# hostname + LAN IPs. Browsers will warn the first time
+# ("Not secure / proceed anyway?"), but admins can install the
+# CA on their workstations or replace cert.crt + cert.key with
+# a real CA-signed cert later.
+
+set -euo pipefail
+
+CERT_DIR=/etc/ssl/filamind
+CERT=${CERT_DIR}/nginx-cert.crt
+KEY=${CERT_DIR}/nginx-cert.key
+DAYS=3650
+
+# Locations the upstream box checks; symlink ours so existing UI
+# checks (and nginx) find them.
+UPSTREAM_CERT=/etc/ssl/certs/nginx-cert.crt
+UPSTREAM_KEY=/etc/ssl/private/nginx-cert.key
+
+mkdir -p "${CERT_DIR}"
+chmod 0750 "${CERT_DIR}"
+
+# If the upstream paths already point at real files (not our
+# symlinks), assume someone wired up a real cert and bail out.
+if [[ -f "${UPSTREAM_CERT}" && ! -L "${UPSTREAM_CERT}" ]]; then
+    echo "filamind-cert: upstream-managed cert already in place at ${UPSTREAM_CERT} — leaving alone"
+    exit 0
+fi
+
+# If our cert exists and is still valid for ≥30 days, do nothing.
+if [[ -f "${CERT}" ]] && \
+   openssl x509 -checkend $((30 * 86400)) -noout -in "${CERT}" 2>/dev/null; then
+    echo "filamind-cert: existing self-signed cert valid for ≥30 days — keeping"
+    exit 0
+fi
+
+HOSTNAME_FQDN=$(hostname -f 2>/dev/null || hostname)
+HOSTNAME_SHORT=$(hostname)
+PRIMARY_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+
+echo "filamind-cert: generating new 10-year self-signed cert for ${HOSTNAME_FQDN}"
+
+# Build a SAN list including hostname, *.local mDNS, and every
+# LAN IP we can see.
+SAN="DNS:${HOSTNAME_FQDN},DNS:${HOSTNAME_SHORT},DNS:${HOSTNAME_SHORT}.local,DNS:localhost,IP:127.0.0.1"
+for ip in $(hostname -I 2>/dev/null); do
+    SAN="${SAN},IP:${ip}"
+done
+
+openssl req \
+    -x509 -newkey rsa:2048 -sha256 \
+    -days "${DAYS}" -nodes \
+    -keyout "${KEY}" \
+    -out "${CERT}" \
+    -subj "/C=XX/ST=filamind/L=filamind/O=filamind-iotbox/OU=self-signed/CN=${HOSTNAME_FQDN}" \
+    -addext "subjectAltName=${SAN}" \
+    -addext "basicConstraints=CA:FALSE" \
+    -addext "keyUsage=digitalSignature,keyEncipherment" \
+    -addext "extendedKeyUsage=serverAuth"
+
+chmod 0644 "${CERT}"
+chmod 0600 "${KEY}"
+
+# Symlink into the upstream paths so nginx picks them up
+mkdir -p "$(dirname "${UPSTREAM_CERT}")" "$(dirname "${UPSTREAM_KEY}")"
+ln -sf "${CERT}" "${UPSTREAM_CERT}"
+ln -sf "${KEY}"  "${UPSTREAM_KEY}"
+
+# Drop a small marker so the homepage can show "self-signed by
+# filamind" instead of the alarming "no certificate"
+mkdir -p /etc/filamind
+echo "self-signed" > /etc/filamind/cert-source
+
+# Reload nginx if it's running so the new cert is picked up
+if systemctl is-active --quiet nginx 2>/dev/null; then
+    systemctl reload nginx || true
+fi
+
+echo "filamind-cert: installed self-signed cert (subject CN=${HOSTNAME_FQDN}, SAN=${SAN})"

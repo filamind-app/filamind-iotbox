@@ -115,6 +115,13 @@ ok "Vendor drivers (Six, Worldline, Adam, EG fiscal) installed"
     || fail "filamind-status helper missing or not executable"
 ok "filamind-status helper installed"
 
+# Self-signed cert generator + rc.local hook
+[[ -x "${ROOT}/usr/local/bin/filamind-make-self-signed-cert" ]] \
+    || fail "filamind-make-self-signed-cert missing or not executable"
+grep -q 'filamind-make-self-signed-cert' "${ROOT}/etc/rc.local" \
+    || fail "rc.local does not call filamind-make-self-signed-cert"
+ok "Self-signed cert generator + rc.local hook installed"
+
 # Version stamp
 if [[ -f "${ROOT}/etc/filamind/version" ]]; then
     log "Version stamp:"
