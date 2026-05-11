@@ -6,6 +6,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and
 
 ## [Unreleased]
 
+### Fixed — patch 007 runtime bugs (uncovered by first real-box deploy)
+
+> Phase-25 patch 007 (the `/iot_drivers/diagnose.html` HTML
+> wrapper) SHIPPED in v0.6.0 but THREW 500 ON FIRST USE on the
+> real customer box at deltafabs.com:
+> `TypeError: the JSON object must be str, bytes or bytearray,
+> not _Response`. Two bugs in one function:
+
+1. `json.loads(self.diagnose())` — `self.diagnose()` is decorated
+   as an HTTP route, so Odoo wraps its return in a `Response`
+   object. Calling `json.loads` on the wrapper raises `TypeError`.
+   **Fix:** `json.loads(self.diagnose().get_data(as_text=True))`.
+
+2. The HTML template was built via Python `%` formatting, which
+   interpreted literal `%` characters in CSS (`width:100%`) as
+   format specifiers and threw `ValueError` on the first request
+   that had non-empty data. **Fix:** rewrite the function to build
+   the HTML via `str.replace('__SLOT__', value)` with distinct
+   sentinel placeholders, so no `%`-escaping is needed and CSS
+   `width:100%` is passed through verbatim.
+
+Also tightens HTML-escaping (now escapes `<` consistently in
+both `name` and `detail` cells, plus `word-break: break-all` on
+the `<code>` so long URLs don't overflow on tablets).
+
+Both fixes have been hot-applied to the customer box and verified
+working: `https://<box>/iot_drivers/diagnose.html` returns 200
+with the expected red/green table.
+
 ### Fixed — Phase 25: self-signed TLS cert (filamind-iotbox v0.6.0)
 
 > Resolves the persistent "This IoT Box doesn't have a valid
