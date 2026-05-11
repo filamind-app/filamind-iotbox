@@ -29,6 +29,15 @@ scp -q "${REPO_ROOT}"/patches/002-homepage-add-url-endpoint.patch "${TARGET}:/tm
 scp -q "${REPO_ROOT}"/src/iot_drivers/static/src/app/components/dialog/ServerDialog.js "${TARGET}:/tmp/"
 scp -q "${REPO_ROOT}"/src/etc/rc.local "${TARGET}:/tmp/rc.local.filamind"
 
+# Vendor drivers — new files, no patches needed. Copied wholesale to
+# /home/pi/odoo/addons/iot_drivers/drivers/ where Odoo's driver
+# auto-discovery picks them up at startup.
+log "Uploading filamind vendor drivers (Six, Worldline, Adam, EG fiscal)"
+ssh "${TARGET}" 'mkdir -p /tmp/filamind_drivers'
+for d in "${REPO_ROOT}"/src/iot_drivers/drivers/filamind_*.py; do
+    [[ -f "$d" ]] && scp -q "$d" "${TARGET}:/tmp/filamind_drivers/"
+done
+
 log "Backing up originals (keeps a .filamind-backup copy)"
 ssh "${TARGET}" 'bash -se' <<'REMOTE'
 set -euo pipefail
@@ -59,11 +68,21 @@ sudo install -m 0644 /tmp/ServerDialog.js \
 
 sudo install -m 0755 /tmp/rc.local.filamind /etc/rc.local
 
+# Vendor drivers
+sudo mkdir -p "${ODOO}/addons/iot_drivers/drivers"
+if compgen -G "/tmp/filamind_drivers/filamind_*.py" >/dev/null; then
+    for f in /tmp/filamind_drivers/filamind_*.py; do
+        sudo install -m 0644 "$f" \
+            "${ODOO}/addons/iot_drivers/drivers/$(basename "$f")"
+    done
+fi
+
 # Cleanup
 rm -f /tmp/001-helpers-optional-args.patch \
       /tmp/002-homepage-add-url-endpoint.patch \
       /tmp/ServerDialog.js \
       /tmp/rc.local.filamind
+rm -rf /tmp/filamind_drivers
 
 # Restart Odoo to pick up changes
 sudo systemctl restart odoo

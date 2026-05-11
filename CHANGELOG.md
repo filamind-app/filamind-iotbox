@@ -6,6 +6,46 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and
 
 ## [Unreleased]
 
+### Added — Phase 18: Vendor drivers on the box (filamind-iotbox v0.4.0)
+
+> The server-side data layers for Six / Worldline / Adam / EG fiscal
+> were already in `filamind-iot` v1.0.0; this release ships the
+> matching driver code that actually talks to the hardware on the
+> box.
+
+- New directory `src/iot_drivers/drivers/` with four LGPL-3 driver
+  files; the build script copies them into
+  `/home/pi/odoo/addons/iot_drivers/drivers/` where Odoo's driver
+  auto-discovery picks them up at startup.
+- `filamind_six_driver.py` — Six TIM Direct (USB) + TIM Cloud
+  (HTTPS). Detects USB VID `0bab` / `1fc9` (MOIFA / SIX TIM).
+  Implements the `pay` / `cancel` / `test_connection` actions and
+  returns the response shape `pos.payment._filamind_apply_six_response`
+  expects. The TIM-protocol framing is currently a clearly-marked
+  `TODO` so end-to-end wiring can be validated against a real
+  terminal.
+- `filamind_worldline_driver.py` — Worldline CTEP (Yomani XR,
+  YoxiPOS, Move/2500). Detects USB VID `0ccd`. Same response
+  shape as `pos.payment._filamind_apply_worldline_response`,
+  including EMV TVR / TSI for chargeback defense. CTEP framing
+  also `TODO`-stubbed.
+- `filamind_adam_driver.py` — Adam Equipment AGN serial protocol
+  (CPWplus / GFK / GBK / GFC / GBC). Detects USB VID `0403`
+  (FTDI), `067b` (Prolific), `1a86` (CH340). Implements `Z`
+  (zero), `T` (tare), and `P` (poll weight) AGN commands, and
+  ships a working `parse_adam_weight` helper that handles Adam's
+  variable padding (`"  +123.4 g\\r\\n"` → `(123.4, 'g')`).
+- `filamind_eg_fiscal_driver.py` — Egyptian Tax Authority hardware
+  fiscal printer (Sunmi V2 fiscal, Aures Yuno). Detects USB VID
+  `27dd` / `0fe6`. Implements `fiscal_print` that frames
+  `ESC i ... ESC I` around the receipt body, queries
+  `ESC ? u` (UUID) + `ESC ? q` (QR), and returns the
+  device-issued signature for `pos.order._filamind_apply_eg_fiscal_response`.
+- `scripts/build-image.sh` and `scripts/flash-patches.sh` updated
+  to copy the new driver files into the image / running box.
+- `/etc/filamind/version` now records the vendor-driver count
+  alongside the patch count.
+
 ### Added — Phase 3: Self-diagnose endpoint (filamind-iotbox v0.3.0)
 
 > Roadmap Phase 3 of 16. The box now exposes a one-shot health-check

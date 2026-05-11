@@ -99,6 +99,17 @@ patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/006-homepage-add-diagnose.pat
 log "Replacing /etc/rc.local"
 install -m 0755 "${REPO_ROOT}/src/etc/rc.local" "${ROOT}/etc/rc.local"
 
+log "Installing filamind vendor drivers (Six, Worldline, Adam, EG fiscal)"
+mkdir -p "${ODOO_DIR}/addons/iot_drivers/drivers"
+driver_count=0
+for d in "${REPO_ROOT}"/src/iot_drivers/drivers/filamind_*.py; do
+    [[ -f "$d" ]] || continue
+    install -m 0644 "$d" \
+        "${ODOO_DIR}/addons/iot_drivers/drivers/$(basename "$d")"
+    driver_count=$((driver_count + 1))
+done
+log "  installed ${driver_count} vendor drivers"
+
 log "Recording filamind version stamp"
 mkdir -p "${ROOT}/etc/filamind"
 patch_count=$(find "${REPO_ROOT}/patches/" -maxdepth 1 -name '*.patch' -type f | wc -l)
@@ -106,6 +117,7 @@ cat > "${ROOT}/etc/filamind/version" <<EOF
 filamind-iotbox ${VERSION}
 built $(date -Iseconds)
 patches ${patch_count}
+vendor_drivers ${driver_count}
 EOF
 
 log "Syncing filesystem"
