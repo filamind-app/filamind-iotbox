@@ -102,6 +102,15 @@ grep -q '/iot_drivers/diagnose.html' "${homepage}" \
     || fail "patch 7 not applied (diagnose.html missing)"
 ok "Patch 7 (diagnose HTML view) applied"
 
+# Patch 8 — /iot_drivers/proxy_connect + proxy_poll endpoints added
+grep -q '/iot_drivers/proxy_connect' "${homepage}" \
+    || fail "patch 8 not applied (proxy_connect missing)"
+grep -q '/iot_drivers/proxy_poll' "${homepage}" \
+    || fail "patch 8 not applied (proxy_poll missing)"
+grep -q '_filamind_load_proxy_url' "${homepage}" \
+    || fail "patch 8 not applied (config loader missing)"
+ok "Patch 8 (proxy-pair endpoints) applied"
+
 # Vendor drivers
 drivers_dir="${ROOT}/home/pi/odoo/addons/iot_drivers/drivers"
 for d in filamind_six_driver filamind_worldline_driver \
@@ -121,6 +130,13 @@ ok "filamind-status helper installed"
 grep -q 'filamind-make-self-signed-cert' "${ROOT}/etc/rc.local" \
     || fail "rc.local does not call filamind-make-self-signed-cert"
 ok "Self-signed cert generator + rc.local hook installed"
+
+# Proxy-pair config seeder + rc.local hook (Phase 5)
+[[ -x "${ROOT}/usr/local/bin/filamind-proxy-init" ]] \
+    || fail "filamind-proxy-init missing or not executable"
+grep -q 'filamind-proxy-init' "${ROOT}/etc/rc.local" \
+    || fail "rc.local does not call filamind-proxy-init"
+ok "Proxy-pair config seeder + rc.local hook installed"
 
 # Version stamp
 if [[ -f "${ROOT}/etc/filamind/version" ]]; then

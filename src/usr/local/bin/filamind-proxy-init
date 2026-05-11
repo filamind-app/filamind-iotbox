@@ -1,0 +1,37 @@
+#!/bin/sh
+# filamind-proxy-init -- write a default /etc/filamind/iot-proxy.conf if absent.
+#
+# Phase 5 of the roadmap: enables the box's optional pair-via-proxy flow
+# (patch 008). The conf file is one URL per line; the first non-comment
+# line wins. With no file present, /iot_drivers/proxy_connect refuses --
+# default installs continue to use the existing direct-pair flow.
+#
+# Idempotent: never overwrites a conf the operator has already edited.
+#
+set -eu
+
+CONF=/etc/filamind/iot-proxy.conf
+
+if [ -e "$CONF" ]; then
+    # Operator has already configured (or explicitly emptied) this file.
+    # Don't touch it.
+    exit 0
+fi
+
+mkdir -p /etc/filamind
+cat >"$CONF" <<'TEMPLATE'
+# /etc/filamind/iot-proxy.conf
+#
+# Optional self-hosted iot-proxy URL. The box's /iot_drivers/proxy_connect
+# endpoint (patch 008) reads the first non-comment line below.
+#
+# Leave commented to disable the proxy-pair flow; the direct
+# {customer-odoo}/filamind_iot/pair flow (patch 002) keeps working.
+#
+# Examples:
+#   https://iot-proxy.filamind.app
+#   https://iot-proxy.your-brand.example.com
+#
+# https://iot-proxy.filamind.app
+TEMPLATE
+chmod 0644 "$CONF"

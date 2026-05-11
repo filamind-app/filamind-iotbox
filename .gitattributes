@@ -1,0 +1,10 @@
+# Force LF for files where CRLF would break consumers.
+#
+# `git apply` treats each line in a patch literally; CRLF context lines
+# do not match the LF lines in the upstream Odoo file and the patch
+# fails. Same for shell scripts (rc.local, helper bins) which are
+# executed on the Pi (Linux).
+*.patch       text eol=lf
+*.sh          text eol=lf
+src/etc/**    text eol=lf
+src/usr/**    text eol=lf
