@@ -66,27 +66,35 @@ jobs:
           git sparse-checkout set 'addons/iot_drivers'
           git checkout
 
-      - name: Apply each patch in dry-run mode
+      - name: Apply patches sequentially (mirrors flash-patches.sh order)
         run: |
           cd upstream
+          # Apply each patch on top of the previous ones — same order as
+          # flash-patches.sh and build-image.sh.  Earlier patches add
+          # context that later patches expect, so dry-running each patch
+          # independently against pristine upstream gives spurious
+          # "patch does not apply" errors (see PR #2 history for the
+          # initial bug that motivated this change).
           for p in ../patches/*.patch; do
             case "$p" in
               *rc-local*) echo "Skipping $p (not in odoo repo)"; continue ;;
             esac
             echo "::group::$p"
-            git apply --check --verbose "$p"
+            git apply --verbose "$p"
             echo "::endgroup::"
           done
+          echo "::notice::All patches applied cleanly in sequence"
 
-      - name: Apply for real and diff against src/ snapshots
+      - name: Diff src/ snapshots against upstream + applied patches
         run: |
           cd upstream
-          git apply ../patches/001-helpers-optional-args.patch
-          git apply ../patches/002-homepage-add-url-endpoint.patch
-          # ServerDialog.js is a full-file replacement, not a patch
+          # ServerDialog.js is a full-file replacement, not a patch.
+          # After applying 001/002, the upstream file should still
+          # diverge from our src/ snapshot (because src/ has the
+          # tabbed-UI rewrite that no patch covers).
           diff -u addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js \
                   ../src/iot_drivers/static/src/app/components/dialog/ServerDialog.js \
-            && echo "::warning::src/ServerDialog.js is identical to upstream — patch 3 may not represent a real change" \
+            && echo "::warning::src/ServerDialog.js is identical to upstream — full-file replacement may not represent a real change" \
             || echo "OK — src/ServerDialog.js diverges from upstream as expected"
 
   scripts-shellcheck:
