@@ -1,0 +1,117 @@
+From: filamind <abdelmonemawad@hotmail.com>
+Subject: [PATCH 8/8] iot_drivers/homepage: optional pair-via-filamind-iot-proxy
+
+Adds two JSON-RPC endpoints so a customer's IoT Box can pair through a
+self-hosted filamind-iot-proxy (https://github.com/filamind-app/filamind-iot-proxy)
+instead of -- or in addition to -- the existing direct
+{customer-odoo}/filamind_iot/pair flow.
+
+  * POST /iot_drivers/proxy_connect  -> proxy phones home, returns pairing_code
+  * POST /iot_drivers/proxy_poll     -> box polls until the customer's Odoo admin
+                                        finalizes the code on the proxy, then we
+                                        save the returned server URL + restart.
+
+The proxy URL is resolved in this order:
+  1. argument passed in the JSON-RPC body  (operator override)
+  2. first non-comment line of /etc/filamind/iot-proxy.conf
+  3. failure -- caller must pick one
+
+The existing direct-pair flow (patch 002) is left untouched. Customers
+who don't run a proxy continue to work exactly as before; this patch is
+opt-in by virtue of the conf file being absent on default installs.
+
+The /etc/filamind/iot-proxy.conf file is initialised on first boot by
+/usr/local/bin/filamind-proxy-init (also new in this commit).
+
+---
+--- a/addons/iot_drivers/controllers/homepage.py
++++ b/addons/iot_drivers/controllers/homepage.py
+@@ -210,6 +210,88 @@
+                 .replace('__SUMMARY__', summary)
+                 .replace('__ROWS__', rows))
+ 
++    @route.iot_route('/iot_drivers/proxy_connect', type='jsonrpc', methods=['POST'], cors='*')
++    def filamind_proxy_connect(self, proxy_url=None):
++        """filamind: phone home to a self-hosted iot-proxy
++        (filamind-iot-proxy) and ask for a pairing code.
++
++        proxy_url is resolved in this order:
++          1. argument passed in the JSON-RPC body  (operator override)
++          2. first non-comment line of /etc/filamind/iot-proxy.conf
++          3. failure -- caller must pick one
++        """
++        import requests
++        if not proxy_url:
++            proxy_url = self._filamind_load_proxy_url()
++        if not proxy_url:
++            return {'status': 'failure', 'message':
++                    'No proxy_url configured (set /etc/filamind/iot-proxy.conf).'}
++        try:
++            resp = requests.post(
++                proxy_url.rstrip('/') + '/iot/connect',
++                json={'serial_number': system.IOT_IDENTIFIER},
++                timeout=10,
++            )
++            data = resp.json() if resp.content else {}
++        except (requests.RequestException, ValueError):
++            return {'status': 'failure', 'message': 'Could not reach proxy.'}
++        if resp.status_code != 200 or 'pairing_code' not in data:
++            return {'status': 'failure',
++                    'message': data.get('detail') or 'Proxy refused connect.'}
++        return {
++            'status': 'success',
++            'pairing_code': data['pairing_code'],
++            'expires_at': data.get('expires_at'),
++            'proxy_url': proxy_url,
++            'box_id': data.get('box_id'),
++        }
++
++    @route.iot_route('/iot_drivers/proxy_poll', type='jsonrpc', methods=['POST'], cors='*')
++    def filamind_proxy_poll(self, code, proxy_url=None):
++        """Poll the proxy for the state of a pairing code. When the
++        admin's Odoo finalizes the pairing on the proxy, this returns
++        the customer's server URL and we save it + restart Odoo."""
++        import requests
++        if not proxy_url:
++            proxy_url = self._filamind_load_proxy_url()
++        if not proxy_url:
++            return {'status': 'failure', 'message': 'proxy_url missing'}
++        try:
++            resp = requests.get(
++                proxy_url.rstrip('/') + '/iot/poll/' + str(code).strip(),
++                timeout=10,
++            )
++            data = resp.json() if resp.content else {}
++        except (requests.RequestException, ValueError):
++            return {'status': 'failure', 'message': 'Proxy unreachable.'}
++        proxy_state = data.get('status')
++        if proxy_state == 'consumed' and data.get('paired_server_url'):
++            try:
++                helpers.save_conf_server(
++                    **helpers.parse_url(data['paired_server_url']))
++            except ValueError:
++                return {'status': 'failure',
++                        'message': 'Bad server URL from proxy.'}
++            helpers.odoo_restart(1)
++            return {'status': 'success',
++                    'message': 'Pairing complete. IoT will restart.',
++                    'paired_server_url': data['paired_server_url']}
++        return {'status': 'pending', 'proxy_state': proxy_state or 'unknown'}
++
++    @staticmethod
++    def _filamind_load_proxy_url():
++        """Read first non-comment line of /etc/filamind/iot-proxy.conf."""
++        import os
++        conf = '/etc/filamind/iot-proxy.conf'
++        if not os.path.exists(conf):
++            return None
++        with open(conf, encoding='utf-8') as fh:
++            for line in fh:
++                line = line.strip()
++                if line and not line.startswith('#'):
++                    return line
++        return None
++
+     @route.iot_route('/iot_drivers/iot_logs', type='http', cors='*')
+     def get_iot_logs(self):
+         logs_path = "/var/log/odoo/odoo-server.log" if IS_RPI else Path().absolute().parent.joinpath('odoo.log')

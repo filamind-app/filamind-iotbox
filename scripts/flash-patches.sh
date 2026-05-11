@@ -27,10 +27,12 @@ log "Uploading patches and modified files"
 scp -q "${REPO_ROOT}"/patches/001-helpers-optional-args.patch "${TARGET}:/tmp/"
 scp -q "${REPO_ROOT}"/patches/002-homepage-add-url-endpoint.patch "${TARGET}:/tmp/"
 scp -q "${REPO_ROOT}"/patches/007-homepage-diagnose-html.patch "${TARGET}:/tmp/"
+scp -q "${REPO_ROOT}"/patches/008-homepage-add-proxy-pair.patch "${TARGET}:/tmp/"
 scp -q "${REPO_ROOT}"/src/iot_drivers/static/src/app/components/dialog/ServerDialog.js "${TARGET}:/tmp/"
 scp -q "${REPO_ROOT}"/src/etc/rc.local "${TARGET}:/tmp/rc.local.filamind"
 scp -q "${REPO_ROOT}"/src/usr/local/bin/filamind-status "${TARGET}:/tmp/"
 scp -q "${REPO_ROOT}"/src/usr/local/bin/filamind-make-self-signed-cert "${TARGET}:/tmp/"
+scp -q "${REPO_ROOT}"/src/usr/local/bin/filamind-proxy-init "${TARGET}:/tmp/"
 
 # Vendor drivers — new files, no patches needed. Copied wholesale to
 # /home/pi/odoo/addons/iot_drivers/drivers/ where Odoo's driver
@@ -66,6 +68,7 @@ ODOO=/home/pi/odoo
 sudo patch -p1 -d "${ODOO}" < /tmp/001-helpers-optional-args.patch
 sudo patch -p1 -d "${ODOO}" < /tmp/002-homepage-add-url-endpoint.patch
 sudo patch -p1 -d "${ODOO}" < /tmp/007-homepage-diagnose-html.patch || true
+sudo patch -p1 -d "${ODOO}" < /tmp/008-homepage-add-proxy-pair.patch || true
 
 sudo install -m 0644 /tmp/ServerDialog.js \
     "${ODOO}/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js"
@@ -76,9 +79,14 @@ sudo install -m 0755 /tmp/rc.local.filamind /etc/rc.local
 sudo install -m 0755 /tmp/filamind-status /usr/local/bin/filamind-status
 sudo install -m 0755 /tmp/filamind-make-self-signed-cert \
     /usr/local/bin/filamind-make-self-signed-cert
+sudo install -m 0755 /tmp/filamind-proxy-init \
+    /usr/local/bin/filamind-proxy-init
 # Generate the cert immediately so the next homepage hit shows
 # "self-signed by filamind" rather than "no cert"
 sudo /usr/local/bin/filamind-make-self-signed-cert || true
+# Seed /etc/filamind/iot-proxy.conf so the proxy-pair flow is
+# configurable without rebuilding the image. Idempotent.
+sudo /usr/local/bin/filamind-proxy-init || true
 
 # Vendor drivers
 sudo mkdir -p "${ODOO}/addons/iot_drivers/drivers"
@@ -93,10 +101,12 @@ fi
 rm -f /tmp/001-helpers-optional-args.patch \
       /tmp/002-homepage-add-url-endpoint.patch \
       /tmp/007-homepage-diagnose-html.patch \
+      /tmp/008-homepage-add-proxy-pair.patch \
       /tmp/ServerDialog.js \
       /tmp/rc.local.filamind \
       /tmp/filamind-status \
-      /tmp/filamind-make-self-signed-cert
+      /tmp/filamind-make-self-signed-cert \
+      /tmp/filamind-proxy-init
 rm -rf /tmp/filamind_drivers
 
 # Restart Odoo to pick up changes

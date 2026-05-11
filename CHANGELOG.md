@@ -6,6 +6,40 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and
 
 ## [Unreleased]
 
+### Added — Phase 5: optional pair-via-filamind-iot-proxy (patch 008)
+
+> Roadmap Phase 5 of 8 (filamind-iot-proxy companion). Lets a customer
+> IoT Box pair through a self-hosted
+> [filamind-iot-proxy](https://github.com/filamind-app/filamind-iot-proxy)
+> instead of (or in addition to) the existing direct
+> `{customer-odoo}/filamind_iot/pair` flow.
+
+- **patch 008** — adds two JSON-RPC routes to `homepage.py`:
+  * `POST /iot_drivers/proxy_connect` — phones home to the configured
+    proxy's `/iot/connect`, returns the pairing code + `box_id`.
+  * `POST /iot_drivers/proxy_poll` — polls `/iot/poll/<code>` and,
+    once the customer's Odoo admin finalizes the pairing on the proxy,
+    saves the returned `paired_server_url` via
+    `helpers.save_conf_server` and triggers an Odoo restart.
+- **`/usr/local/bin/filamind-proxy-init`** — seeds
+  `/etc/filamind/iot-proxy.conf` on first boot. Idempotent; never
+  overwrites an operator-edited file.
+- **`rc.local`** invokes the helper at boot, alongside the existing
+  self-signed-cert helper.
+- **Resolution order** for the proxy URL: JSON-RPC arg → first
+  non-comment line of `/etc/filamind/iot-proxy.conf` → failure.
+- **Default-install behavior unchanged** — the conf file is
+  comment-only on a fresh image, so `proxy_connect` returns
+  `'failure'` until the operator points it somewhere. The direct
+  pair flow (patch 002) keeps working.
+- `build-image.sh`, `flash-patches.sh`, `verify-image.sh`, and the
+  CI manifest list all extended for the new patch + helper.
+
+Pairs with **filamind-iot-proxy v0.1.0** (Phase 1: pairing API) and
+**v0.2.0** (Phase 4a: admin REST). Phase 4b (Odoo addon
+`filamind_iot_proxy_admin`) drives `POST /iot/finalize` on the proxy
+side to complete the round-trip.
+
 ### Fixed — transport.py circular import (patch 005 was unloadable)
 
 > Phase-2 transport selector (`patch 005`) failed to load on the

@@ -99,8 +99,11 @@ patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/006-homepage-add-diagnose.pat
 log "Applying patch 007 (homepage.py /iot_drivers/diagnose.html)"
 patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/007-homepage-diagnose-html.patch"
 
+log "Applying patch 008 (homepage.py /iot_drivers/proxy_connect + proxy_poll)"
+patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/008-homepage-add-proxy-pair.patch"
+
 log "Installing filamind helper scripts into /usr/local/bin"
-for helper in filamind-status filamind-make-self-signed-cert; do
+for helper in filamind-status filamind-make-self-signed-cert filamind-proxy-init; do
     src="${REPO_ROOT}/src/usr/local/bin/${helper}"
     if [[ -f "$src" ]]; then
         install -m 0755 "$src" "${ROOT}/usr/local/bin/${helper}"

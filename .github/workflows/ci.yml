@@ -143,7 +143,12 @@ jobs:
             patches/004-rc-local-disable-autoupdate.patch
             patches/005-main-py-transport-selector.patch
             patches/006-homepage-add-diagnose.patch
+            patches/007-homepage-diagnose-html.patch
+            patches/008-homepage-add-proxy-pair.patch
             src/iot_drivers/tools/transport.py
+            src/usr/local/bin/filamind-status
+            src/usr/local/bin/filamind-make-self-signed-cert
+            src/usr/local/bin/filamind-proxy-init
             scripts/build-image.sh
             scripts/split-image.sh
             scripts/download-image.sh
