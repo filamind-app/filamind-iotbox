@@ -26,8 +26,10 @@ ssh "${TARGET}" 'sudo mount -o remount,rw /'
 log "Uploading patches and modified files"
 scp -q "${REPO_ROOT}"/patches/001-helpers-optional-args.patch "${TARGET}:/tmp/"
 scp -q "${REPO_ROOT}"/patches/002-homepage-add-url-endpoint.patch "${TARGET}:/tmp/"
+scp -q "${REPO_ROOT}"/patches/007-homepage-diagnose-html.patch "${TARGET}:/tmp/"
 scp -q "${REPO_ROOT}"/src/iot_drivers/static/src/app/components/dialog/ServerDialog.js "${TARGET}:/tmp/"
 scp -q "${REPO_ROOT}"/src/etc/rc.local "${TARGET}:/tmp/rc.local.filamind"
+scp -q "${REPO_ROOT}"/src/usr/local/bin/filamind-status "${TARGET}:/tmp/"
 
 # Vendor drivers — new files, no patches needed. Copied wholesale to
 # /home/pi/odoo/addons/iot_drivers/drivers/ where Odoo's driver
@@ -62,11 +64,15 @@ ODOO=/home/pi/odoo
 
 sudo patch -p1 -d "${ODOO}" < /tmp/001-helpers-optional-args.patch
 sudo patch -p1 -d "${ODOO}" < /tmp/002-homepage-add-url-endpoint.patch
+sudo patch -p1 -d "${ODOO}" < /tmp/007-homepage-diagnose-html.patch || true
 
 sudo install -m 0644 /tmp/ServerDialog.js \
     "${ODOO}/addons/iot_drivers/static/src/app/components/dialog/ServerDialog.js"
 
 sudo install -m 0755 /tmp/rc.local.filamind /etc/rc.local
+
+# filamind-status helper (in PATH)
+sudo install -m 0755 /tmp/filamind-status /usr/local/bin/filamind-status
 
 # Vendor drivers
 sudo mkdir -p "${ODOO}/addons/iot_drivers/drivers"
@@ -80,8 +86,10 @@ fi
 # Cleanup
 rm -f /tmp/001-helpers-optional-args.patch \
       /tmp/002-homepage-add-url-endpoint.patch \
+      /tmp/007-homepage-diagnose-html.patch \
       /tmp/ServerDialog.js \
-      /tmp/rc.local.filamind
+      /tmp/rc.local.filamind \
+      /tmp/filamind-status
 rm -rf /tmp/filamind_drivers
 
 # Restart Odoo to pick up changes

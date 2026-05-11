@@ -95,7 +95,25 @@ grep -q '/iot_drivers/diagnose' "${homepage}" \
     || fail "patch 6 not applied (diagnose endpoint missing)"
 grep -q 'def diagnose' "${homepage}" \
     || fail "patch 6 not applied (diagnose method missing)"
-ok "Patch 6 (self-diagnose) applied"
+ok "Patch 6 (self-diagnose JSON) applied"
+
+# Patch 7 — /iot_drivers/diagnose.html endpoint added
+grep -q '/iot_drivers/diagnose.html' "${homepage}" \
+    || fail "patch 7 not applied (diagnose.html missing)"
+ok "Patch 7 (diagnose HTML view) applied"
+
+# Vendor drivers
+drivers_dir="${ROOT}/home/pi/odoo/addons/iot_drivers/drivers"
+for d in filamind_six_driver filamind_worldline_driver \
+         filamind_adam_driver filamind_eg_fiscal_driver; do
+    [[ -f "${drivers_dir}/${d}.py" ]] || fail "missing vendor driver: $d"
+done
+ok "Vendor drivers (Six, Worldline, Adam, EG fiscal) installed"
+
+# filamind-status helper
+[[ -x "${ROOT}/usr/local/bin/filamind-status" ]] \
+    || fail "filamind-status helper missing or not executable"
+ok "filamind-status helper installed"
 
 # Version stamp
 if [[ -f "${ROOT}/etc/filamind/version" ]]; then

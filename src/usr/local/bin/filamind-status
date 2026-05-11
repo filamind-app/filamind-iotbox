@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# filamind-status — one-shot dump of everything support needs to know.
+#
+# Run on the box (SSH) when troubleshooting:
+#   curl -sS https://<box-ip>/filamind-status | less
+# OR over SSH:
+#   ssh pi@<box-ip> filamind-status
+#
+# Output is plain-text and pasteable into a support ticket. No
+# credentials, secrets, or PAN data leak.
+
+set -uo pipefail
+ODOO=/home/pi/odoo
+ts=$(date -Iseconds)
+
+echo "=== filamind-status @ ${ts} ==="
+echo
+
+# Image / patch level
+if [[ -r /etc/filamind/version ]]; then
+    echo "--- /etc/filamind/version"
+    cat /etc/filamind/version
+    echo
+fi
+
+# Hostname + uptime
+echo "--- hostname + uptime"
+hostname
+uptime
+echo
+
+# IP addresses
+echo "--- network"
+ip -brief addr show 2>/dev/null | grep -v 'lo ' || ifconfig | head -30
+echo
+if command -v iwgetid >/dev/null 2>&1; then
+    iw=$(iwgetid -r 2>/dev/null || true)
+    [[ -n "$iw" ]] && echo "WiFi SSID: $iw"
+fi
+echo
+
+# Odoo service status
+echo "--- odoo systemd"
+systemctl --no-pager --full status odoo 2>&1 | head -20 || true
+echo
+
+# Configured server URL
+echo "--- configured server URL"
+if [[ -r /home/pi/odoo.conf ]]; then
+    grep -E '^(remote_server|server_url|odoo_server_url|host|port)' \
+        /home/pi/odoo.conf 2>/dev/null || echo "(none configured)"
+fi
+echo
+
+# Discovered USB devices
+echo "--- USB devices"
+lsusb 2>&1 | head -20
+echo
+
+# Loaded filamind drivers
+echo "--- filamind vendor drivers"
+ls -1 "${ODOO}/addons/iot_drivers/drivers/" 2>/dev/null \
+    | grep -E '^filamind_' || echo "(none installed)"
+echo
+
+# Disk usage
+echo "--- disk"
+df -h / 2>&1 | head -3
+echo
+
+# Recent Odoo log tail
+echo "--- recent odoo log (last 30 lines)"
+tail -30 /var/log/odoo/odoo-server.log 2>/dev/null \
+    || tail -30 /home/pi/odoo.log 2>/dev/null \
+    || echo "(no log file found)"
+echo
+
+# Diagnose endpoint
+echo "--- /iot_drivers/diagnose summary"
+if command -v curl >/dev/null; then
+    curl -k -sS -m 5 https://127.0.0.1/iot_drivers/diagnose 2>/dev/null \
+        | head -c 2000 || echo "(diagnose endpoint unreachable locally)"
+    echo
+fi
+
+echo
+echo "=== end filamind-status ==="

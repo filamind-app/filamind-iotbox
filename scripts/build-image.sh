@@ -93,8 +93,16 @@ install -m 0644 \
 log "Applying patch 005 (main.py uses Transport.create)"
 patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/005-main-py-transport-selector.patch"
 
-log "Applying patch 006 (homepage.py /iot_drivers/diagnose)"
+log "Applying patch 006 (homepage.py /iot_drivers/diagnose JSON)"
 patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/006-homepage-add-diagnose.patch"
+
+log "Applying patch 007 (homepage.py /iot_drivers/diagnose.html)"
+patch -p1 -d "${ODOO_DIR}" < "${REPO_ROOT}/patches/007-homepage-diagnose-html.patch"
+
+log "Installing filamind-status helper into /usr/local/bin"
+install -m 0755 \
+    "${REPO_ROOT}/src/usr/local/bin/filamind-status" \
+    "${ROOT}/usr/local/bin/filamind-status"
 
 log "Replacing /etc/rc.local"
 install -m 0755 "${REPO_ROOT}/src/etc/rc.local" "${ROOT}/etc/rc.local"

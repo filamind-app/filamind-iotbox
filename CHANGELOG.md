@@ -6,6 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and
 
 ## [Unreleased]
 
+### Added — Phase 20: Box image polish (filamind-iotbox v0.5.0)
+
+> Two small but high-impact additions for support / debugging.
+
+- **Patch 007** — `GET /iot_drivers/diagnose.html`: a browser-friendly
+  view of the existing `/iot_drivers/diagnose` JSON. Same five
+  checks, but rendered with red/green badges so an on-site tech
+  can see at a glance which transport is broken without parsing
+  JSON.
+- **`/usr/local/bin/filamind-status`** — one-shot dump of everything
+  support needs to know: image version, network, Odoo systemd
+  status, configured server URL, USB devices, loaded vendor
+  drivers, disk usage, recent log tail, and the diagnose summary.
+  Pasteable into a support ticket. Doesn't leak credentials,
+  secrets, or PAN data. Runs over SSH:
+  `ssh pi@<box-ip> filamind-status`.
+- `verify-image.sh` extended to assert patch 007, the four vendor
+  drivers, and the `filamind-status` helper all shipped.
+
 ### Added — Phase 18: Vendor drivers on the box (filamind-iotbox v0.4.0)
 
 > The server-side data layers for Six / Worldline / Adam / EG fiscal
